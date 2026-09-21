@@ -1,5 +1,8 @@
 use serde::Deserialize;
-use sqlx::{sqlite::SqliteConnectOptions, Connection, SqliteConnection};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqliteJournalMode},
+    Connection, SqliteConnection,
+};
 use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
@@ -82,7 +85,8 @@ async fn save_import_snapshot(
         .filename(database_path)
         .create_if_missing(false)
         .foreign_keys(true)
-        .busy_timeout(Duration::from_secs(5));
+        .journal_mode(SqliteJournalMode::Wal)
+        .busy_timeout(Duration::from_secs(30));
     let mut connection = SqliteConnection::connect_with(&options)
         .await
         .map_err(database_error)?;
