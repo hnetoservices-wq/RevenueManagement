@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   load: vi.fn(),
   select: vi.fn(),
+  close: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
@@ -53,16 +54,19 @@ describe("Tauri snapshot repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.select.mockResolvedValue([]);
-    mocks.load.mockResolvedValue({ select: mocks.select });
+    mocks.close.mockResolvedValue(true);
+    mocks.load.mockResolvedValue({ select: mocks.select, close: mocks.close });
     mocks.invoke.mockResolvedValue(undefined);
   });
 
-  it("delegates the complete import to one native transaction", async () => {
+  it("releases the SQL pool before delegating the complete import to one native transaction", async () => {
     const repository = new TauriRepository();
 
     const summary = await repository.saveImport(preview);
 
+    expect(mocks.close).toHaveBeenCalledOnce();
     expect(mocks.invoke).toHaveBeenCalledOnce();
+    expect(mocks.close.mock.invocationCallOrder[0]).toBeLessThan(mocks.invoke.mock.invocationCallOrder[0]);
     expect(mocks.invoke).toHaveBeenCalledWith("save_import_snapshot", {
       payload: {
         summary: expect.objectContaining({
