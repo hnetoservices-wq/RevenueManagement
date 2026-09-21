@@ -1,5 +1,6 @@
+import { invoke } from "@tauri-apps/api/core";
 import Database from "@tauri-apps/plugin-sql";
-import type { ImportPreview, ImportSnapshotSummary, Property, Reservation, RoomAllocation, RoomType } from "../domain/models";
+import type { ImportPreview, ImportSnapshotSummary, Property, Reservation, RoomType } from "../domain/models";
 import { DuplicateImportError, type Repository } from "./repository";
 
 type SqlRow = Record<string, string | number | null>;
@@ -106,52 +107,19 @@ export class TauriRepository implements Repository {
       warningCount: preview.warningCount, excludedRowCount: preview.excludedRowCount,
     };
 
-    await db.execute("BEGIN IMMEDIATE");
     try {
-      await db.execute(
-        `INSERT INTO import_snapshots
-         (id, property_id, source, original_filename, imported_at, data_as_of, file_hash, row_count, valid_row_count, warning_count, excluded_row_count)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-        [summary.id, summary.propertyId, summary.source, summary.filename, summary.importedAt, summary.dataAsOf,
-          summary.fileHash, summary.rowCount, summary.validRowCount, summary.warningCount, summary.excludedRowCount],
-      );
-      for (const reservation of preview.reservations) {
-        await this.insertReservation(db, summary.id, reservation);
-      }
-      await db.execute("COMMIT");
+      // The SQL plugin uses a connection pool, so separate execute() calls cannot
+      // safely implement a transaction. The native command pins every insert to
+      // one connection and commits the complete snapshot atomically.
+      await invoke("save_import_snapshot", {
+        payload: { summary, reservations: preview.reservations },
+      });
       return summary;
     } catch (error) {
-      await db.execute("ROLLBACK");
-      if (String(error).includes("UNIQUE constraint failed: import_snapshots.property_id, import_snapshots.file_hash")) {
+      if (String(error).includes("DUPLICATE_IMPORT")) {
         throw new DuplicateImportError();
       }
       throw error;
     }
-  }
-
-  private async insertReservation(db: Database, snapshotId: string, reservation: Reservation) {
-    await db.execute(
-      `INSERT INTO reservation_snapshots
-       (snapshot_id, property_id, reservation_id, check_in, check_out, booked_at, source, source_status, normalized_status,
-        country, room_quantity, tourist_tax_cents, extra_revenue_excl_cents, extra_revenue_incl_cents,
-        room_revenue_excl_cents, room_revenue_incl_cents, total_booking_value_cents, amount_due_cents)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-      [snapshotId, reservation.propertyId, reservation.reservationId, reservation.checkIn, reservation.checkOut,
-        reservation.bookedAt, reservation.source, reservation.sourceStatus, reservation.status, reservation.country,
-        reservation.roomQuantity, reservation.touristTaxCents, reservation.extraRevenueExclCents,
-        reservation.extraRevenueInclCents, reservation.roomRevenueExclCents, reservation.roomRevenueInclCents,
-        reservation.totalBookingValueCents, reservation.amountDueCents],
-    );
-    for (const room of reservation.rooms) await this.insertRoom(db, snapshotId, reservation, room);
-  }
-
-  private async insertRoom(db: Database, snapshotId: string, reservation: Reservation, room: RoomAllocation) {
-    await db.execute(
-      `INSERT INTO reservation_room_snapshots
-       (snapshot_id, property_id, reservation_id, room_type_id, room_type_name, quantity)
-       SELECT $1, $2, $3, id, canonical_name, $5 FROM room_types
-       WHERE property_id = $2 AND lower(canonical_name) = lower($4)`,
-      [snapshotId, reservation.propertyId, reservation.reservationId, room.roomTypeName, room.quantity],
-    );
   }
 }
