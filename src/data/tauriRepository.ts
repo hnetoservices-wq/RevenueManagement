@@ -108,9 +108,12 @@ export class TauriRepository implements Repository {
     };
 
     try {
-      // The SQL plugin uses a connection pool, so separate execute() calls cannot
-      // safely implement a transaction. The native command pins every insert to
-      // one connection and commits the complete snapshot atomically.
+      // The SQL plugin keeps a connection pool open. Release it before handing
+      // the database to the native importer so SQLite has only one writer path
+      // during the atomic snapshot transaction. The next read lazily reloads it.
+      await db.close();
+      this.database = null;
+
       await invoke("save_import_snapshot", {
         payload: { summary, reservations: preview.reservations },
       });
