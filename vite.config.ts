@@ -7,6 +7,11 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    watch: {
+      // Cargo continuously replaces compiled DLLs on Windows. Watching its
+      // output can make Node hit EBUSY while Rust is still compiling.
+      ignored: ["**/src-tauri/target/**"],
+    },
   },
   envPrefix: ["VITE_", "TAURI_"],
   build: {
