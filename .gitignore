@@ -1,0 +1,12 @@
+node_modules/
+dist/
+src-tauri/target/
+*.db
+*.db-shm
+*.db-wal
+*.xlsx
+*.xls
+*.csv
+!tests/fixtures/*.csv
+.DS_Store
+*.tsbuildinfo

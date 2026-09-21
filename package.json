@@ -1,0 +1,38 @@
+{
+  "name": "local-revenue-manager",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-dialog": "2.7.3",
+    "@tauri-apps/plugin-fs": "2.5.2",
+    "@tauri-apps/plugin-sql": "2.4.1",
+    "date-fns": "4.4.0",
+    "papaparse": "^5.7.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "read-excel-file": "^9.3.10",
+    "recharts": "3.10.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.5",
+    "@types/node": "^26.6.2",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "esbuild": "^0.25.10",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.7",
+    "vitest": "^3.2.4"
+  }
+}
