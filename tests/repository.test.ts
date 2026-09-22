@@ -33,6 +33,14 @@ function preview(
   };
 }
 
+function historicalPreview(hash: string, reservations: Reservation[]): ImportPreview {
+  return {
+    propertyId: "malmerendas", source: "LegacyHistorical", filename: `${hash}.csv`, dataAsOf: "2025-12-31",
+    fileHash: hash, rowCount: reservations.length, validRowCount: reservations.length, excludedRowCount: 0, warningCount: 0, issues: [],
+    reservations,
+  };
+}
+
 describe("snapshot repository", () => {
   beforeEach(() => {
     Object.defineProperty(globalThis, "localStorage", { value: new MemoryStorage(), configurable: true });
@@ -55,7 +63,6 @@ describe("snapshot repository", () => {
       reservations: [{ ...reservation, roomRevenueInclCents: 25000 }],
     }));
 
-    // Importing an older historical file later must not replace the current dashboard state.
     await repository.saveImport(preview("older-imported-later", {
       dataAsOf: "2026-08-01",
       reservations: [{ ...reservation, roomRevenueInclCents: 21200 }, obsolete],
@@ -67,6 +74,44 @@ describe("snapshot repository", () => {
     expect(current[0].reservationId).toBe("R-100");
     expect(current[0].roomRevenueInclCents).toBe(25000);
     expect(current.some((item) => item.reservationId === "R-OLD")).toBe(false);
+  });
+
+  it("uses historical final data for its covered stay dates without exposing it as a booking snapshot", async () => {
+    const repository = new BrowserRepository();
+    await repository.initialize();
+
+    const amenitiz2025: Reservation = {
+      ...reservation,
+      reservationId: "AM-2025",
+      checkIn: "2025-06-10",
+      checkOut: "2025-06-12",
+      bookedAt: "2025-05-10",
+    };
+    const amenitiz2026: Reservation = { ...reservation, reservationId: "AM-2026" };
+    await repository.saveImport(preview("live", {
+      dataAsOf: "2026-09-22",
+      reservations: [amenitiz2025, amenitiz2026],
+    }));
+
+    const legacy2025: Reservation = {
+      ...reservation,
+      reservationId: "legacy:2025-B-1",
+      checkIn: "2025-01-01",
+      checkOut: "2026-01-01",
+      bookedAt: "2024-12-01",
+      source: "Booking.com",
+      country: null,
+      touristTaxCents: 0,
+      roomRevenueInclCents: 12345,
+      roomRevenueExclCents: 12345,
+    };
+    await repository.saveImport(historicalPreview("legacy", [legacy2025]));
+
+    expect(await repository.listImports("malmerendas")).toHaveLength(1);
+    expect(await repository.listHistoricalReservations("malmerendas")).toHaveLength(1);
+    const combined = await repository.listCurrentReservations("malmerendas");
+    expect(combined.map((item) => item.reservationId).sort()).toEqual(["AM-2026", "legacy:2025-B-1"]);
+    expect(combined.some((item) => item.reservationId === "AM-2025")).toBe(false);
   });
 
   it("persists a second property's room configuration independently", async () => {
