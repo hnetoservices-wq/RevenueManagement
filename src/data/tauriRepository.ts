@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import Database from "@tauri-apps/plugin-sql";
-import type { ImportPreview, ImportSnapshotSummary, Property, Reservation, RoomType } from "../domain/models";
+import type { ImportPreview, ImportSnapshotSummary, InventoryClosure, Property, Reservation, RoomType } from "../domain/models";
 import { DuplicateImportError, type Repository } from "./repository";
 
 type SqlRow = Record<string, string | number | null>;
@@ -45,10 +45,16 @@ export class TauriRepository implements Repository {
 
   async listProperties(): Promise<Property[]> {
     const db = await this.db();
-    const properties = await db.select<SqlRow[]>("SELECT id, name, currency, timezone FROM properties ORDER BY name");
-    const rooms = await db.select<SqlRow[]>(
-      "SELECT id, property_id, canonical_name, inventory_count, active_from, active_to FROM room_types ORDER BY canonical_name",
-    );
+    const [properties, rooms, closures] = await Promise.all([
+      db.select<SqlRow[]>("SELECT id, name, currency, timezone FROM properties ORDER BY name"),
+      db.select<SqlRow[]>(
+        "SELECT id, property_id, canonical_name, inventory_count, active_from, active_to FROM room_types ORDER BY canonical_name",
+      ),
+      db.select<SqlRow[]>(
+        `SELECT id, property_id, room_type_id, start_date, end_date, quantity, reason
+         FROM inventory_closures ORDER BY start_date DESC, id`,
+      ),
+    ]);
     return properties.map((property) => ({
       id: String(property.id),
       name: String(property.name),
@@ -64,12 +70,32 @@ export class TauriRepository implements Repository {
           activeFrom: room.active_from ? String(room.active_from) as RoomType["activeFrom"] : null,
           activeTo: room.active_to ? String(room.active_to) as RoomType["activeTo"] : null,
         })),
+      inventoryClosures: closures
+        .filter((closure) => closure.property_id === property.id)
+        .map((closure): InventoryClosure => ({
+          id: String(closure.id),
+          propertyId: String(closure.property_id),
+          roomTypeId: String(closure.room_type_id),
+          startDate: String(closure.start_date) as InventoryClosure["startDate"],
+          endDate: String(closure.end_date) as InventoryClosure["endDate"],
+          quantity: Number(closure.quantity),
+          reason: String(closure.reason ?? ""),
+        })),
     }));
   }
 
   async saveProperty(property: Property): Promise<Property> {
     await invoke("save_property", { property });
     return property;
+  }
+
+  async saveInventoryClosure(closure: InventoryClosure): Promise<InventoryClosure> {
+    await invoke("save_inventory_closure", { closure });
+    return closure;
+  }
+
+  async deleteInventoryClosure(propertyId: string, closureId: string): Promise<void> {
+    await invoke("delete_inventory_closure", { propertyId, closureId });
   }
 
   async listImports(propertyId: string): Promise<ImportSnapshotSummary[]> {
