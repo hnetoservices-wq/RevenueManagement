@@ -1,6 +1,6 @@
 import { addDays, format, isValid, parseISO } from "date-fns";
 import Papa from "papaparse";
-import type { ImportIssue, ImportPreview, IsoDate, NormalizedStatus, Property, Reservation, RoomAllocation } from "../../domain/models";
+import type { ImportIssue, ImportPreview, IsoDate, NormalizedStatus, Property, Reservation, RoomAllocation, RoomType } from "../../domain/models";
 import { sha256 } from "./amenitizCore";
 
 const REQUIRED_HEADERS = [
@@ -21,13 +21,13 @@ const REQUIRED_HEADERS = [
   "room_revenue_eur",
 ] as const;
 
-const ROOM_COLUMNS: Array<[string, string]> = [
-  ["superior_king_studio_qty", "Superior King Studio"],
-  ["deluxe_suite_qty", "Deluxe Suite"],
-  ["junior_suite_qty", "Junior Suite"],
-  ["attic_loft_qty", "Attic Loft"],
-  ["terrace_loft_qty", "Terrace Loft"],
-  ["garden_studio_qty", "Garden Studio"],
+const ROOM_COLUMNS: Array<[string, string, string]> = [
+  ["superior_king_studio_qty", "Superior King Studio", "SKS"],
+  ["deluxe_suite_qty", "Deluxe Suite", "DS"],
+  ["junior_suite_qty", "Junior Suite", "JS"],
+  ["attic_loft_qty", "Attic Loft", "AL"],
+  ["terrace_loft_qty", "Terrace Loft", "TL"],
+  ["garden_studio_qty", "Garden Studio", "GS"],
 ];
 
 type RawRow = Record<string, string | undefined>;
@@ -60,24 +60,66 @@ function normalizedStatus(value: string | undefined): NormalizedStatus | null {
   return status === "active" || status === "cancelled" || status === "ignored" ? status : null;
 }
 
+function normalizedRoomName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function findConfiguredRoom(property: Property, canonicalName: string, legacyCode: string): RoomType | null {
+  const canonicalKey = normalizedRoomName(canonicalName);
+  const codeKey = normalizedRoomName(legacyCode);
+  return property.roomTypes.find((room) => {
+    const roomKey = normalizedRoomName(room.canonicalName);
+    return roomKey === canonicalKey || roomKey === codeKey;
+  }) ?? null;
+}
+
 function roomsForRow(row: RawRow, sourceRow: number, property: Property, issues: ImportIssue[]): RoomAllocation[] {
-  const knownRooms = new Set(property.roomTypes.map((room) => room.canonicalName.toLowerCase()));
   const rooms: RoomAllocation[] = [];
-  for (const [column, roomTypeName] of ROOM_COLUMNS) {
+  for (const [column, canonicalName, legacyCode] of ROOM_COLUMNS) {
     const quantity = wholeNumber(row[column]);
     if (quantity === null) {
       issues.push(issue(sourceRow, "error", "invalid_room_quantity", column, `${column} must be a whole number.`));
       continue;
     }
     if (!quantity) continue;
-    if (!knownRooms.has(roomTypeName.toLowerCase())) {
-      issues.push(issue(sourceRow, "error", "unknown_room_type", column, `Unknown room type: ${roomTypeName}.`));
+    const configuredRoom = findConfiguredRoom(property, canonicalName, legacyCode);
+    if (!configuredRoom) {
+      const available = property.roomTypes.map((room) => room.canonicalName).join(", ") || "none configured";
+      issues.push(issue(
+        sourceRow,
+        "error",
+        "unknown_room_type",
+        column,
+        `Historical room ${canonicalName} (${legacyCode}) does not match this property's configured room types: ${available}.`,
+      ));
       continue;
     }
-    rooms.push({ roomTypeName, quantity });
+    rooms.push({ roomTypeName: configuredRoom.canonicalName, quantity });
   }
   if (!rooms.length) issues.push(issue(sourceRow, "error", "missing_room_assignment", null, "No room is assigned to this historical stay line."));
   return rooms;
+}
+
+function zeroValidRowsMessage(issues: ImportIssue[]): string {
+  const errors = issues.filter((item) => item.severity === "error");
+  if (!errors.length) return "No valid historical stays were found in the CSV.";
+  const counts = new Map<string, { count: number; example: ImportIssue }>();
+  for (const error of errors) {
+    const current = counts.get(error.code);
+    if (current) current.count += 1;
+    else counts.set(error.code, { count: 1, example: error });
+  }
+  const summary = Array.from(counts.values())
+    .slice(0, 4)
+    .map(({ count, example }) => `${count} × ${example.message} (row ${example.row})`)
+    .join("; ");
+  return `No valid historical stays were found in the CSV. Validation errors: ${summary}`;
 }
 
 export async function parseLegacyHistoricalFile(
@@ -169,7 +211,7 @@ export async function parseLegacyHistoricalFile(
     });
   });
 
-  if (!reservations.length || !earliestCheckIn || !latestCheckOut) throw new Error("No valid historical stays were found in the CSV.");
+  if (!reservations.length || !earliestCheckIn || !latestCheckOut) throw new Error(zeroValidRowsMessage(issues));
   const coverageEnd = format(addDays(parseISO(latestCheckOut), -1), "yyyy-MM-dd") as IsoDate;
   issues.unshift(issue(1, "warning", "historical_final_dataset", null, `Historical final data covers stays from ${earliestCheckIn} to ${coverageEnd}. It will not be used as a booking-position snapshot.`));
 
