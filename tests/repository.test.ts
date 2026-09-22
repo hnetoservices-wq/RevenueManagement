@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { BrowserRepository } from "../src/data/browserRepository";
 import { DuplicateImportError } from "../src/data/repository";
-import type { ImportPreview, IsoDate, Reservation } from "../src/domain/models";
+import type { ImportPreview, IsoDate, Property, Reservation } from "../src/domain/models";
 
 class MemoryStorage implements Storage {
   private data = new Map<string, string>();
@@ -67,5 +67,28 @@ describe("snapshot repository", () => {
     expect(current[0].reservationId).toBe("R-100");
     expect(current[0].roomRevenueInclCents).toBe(25000);
     expect(current.some((item) => item.reservationId === "R-OLD")).toBe(false);
+  });
+
+  it("persists a second property's room configuration independently", async () => {
+    const repository = new BrowserRepository();
+    await repository.initialize();
+    const property: Property = {
+      id: "fonte-santa",
+      name: "Fonte Santa",
+      currency: "EUR",
+      timezone: "Europe/Lisbon",
+      roomTypes: [
+        { id: "fs-1", propertyId: "fonte-santa", canonicalName: "Casa da Estufa", inventoryCount: 2, activeFrom: null, activeTo: null },
+        { id: "fs-2", propertyId: "fonte-santa", canonicalName: "Suite Conselheiro", inventoryCount: 1, activeFrom: null, activeTo: null },
+        { id: "fs-3", propertyId: "fonte-santa", canonicalName: "Quarto Junior", inventoryCount: 2, activeFrom: null, activeTo: null },
+      ],
+    };
+
+    await repository.saveProperty(property);
+    const properties = await repository.listProperties();
+    expect(properties).toHaveLength(2);
+    const saved = properties.find((item) => item.id === "fonte-santa")!;
+    expect(saved.roomTypes.reduce((sum, room) => sum + room.inventoryCount, 0)).toBe(5);
+    expect(saved.roomTypes.map((room) => room.canonicalName)).toContain("Casa da Estufa");
   });
 });
