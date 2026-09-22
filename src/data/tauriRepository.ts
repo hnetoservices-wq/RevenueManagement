@@ -29,6 +29,16 @@ function rowsToReservations(rows: SqlRow[]): Reservation[] {
   return Array.from(result.values());
 }
 
+function mergeHistoricalFinal(current: Reservation[], historical: Reservation[]): Reservation[] {
+  if (!historical.length) return current;
+  const coverageStart = historical.reduce((min, reservation) => reservation.checkIn < min ? reservation.checkIn : min, historical[0].checkIn);
+  const coverageEndExclusive = historical.reduce((max, reservation) => reservation.checkOut > max ? reservation.checkOut : max, historical[0].checkOut);
+  const outsideHistoricalCoverage = current.filter(
+    (reservation) => reservation.checkOut <= coverageStart || reservation.checkIn >= coverageEndExclusive,
+  );
+  return [...historical, ...outsideHistoricalCoverage];
+}
+
 export class TauriRepository implements Repository {
   private database: Database | null = null;
 
@@ -103,7 +113,9 @@ export class TauriRepository implements Repository {
     const rows = await db.select<SqlRow[]>(
       `SELECT id, property_id, source, original_filename, imported_at, data_as_of, file_hash,
               row_count, valid_row_count, warning_count, excluded_row_count
-       FROM import_snapshots WHERE property_id = $1 ORDER BY data_as_of DESC, imported_at DESC`,
+       FROM import_snapshots
+       WHERE property_id = $1 AND source = 'Amenitiz'
+       ORDER BY data_as_of DESC, imported_at DESC`,
       [propertyId],
     );
     return rows.map((row) => ({
@@ -115,18 +127,50 @@ export class TauriRepository implements Repository {
     }));
   }
 
-  async listCurrentReservations(propertyId: string): Promise<Reservation[]> {
+  async listHistoricalReservations(propertyId: string): Promise<Reservation[]> {
     const db = await this.db();
     const rows = await db.select<SqlRow[]>(
       `SELECT r.*, rr.room_type_name, rr.quantity
-       FROM current_reservations r
+       FROM reservation_snapshots r
+       JOIN import_snapshots i ON i.id = r.snapshot_id
        LEFT JOIN reservation_room_snapshots rr
          ON rr.snapshot_id = r.snapshot_id AND rr.reservation_id = r.reservation_id
        WHERE r.property_id = $1
+         AND i.source = 'LegacyHistorical'
+         AND i.id = (
+           SELECT latest.id FROM import_snapshots latest
+           WHERE latest.property_id = $1 AND latest.source = 'LegacyHistorical'
+           ORDER BY latest.imported_at DESC, latest.rowid DESC
+           LIMIT 1
+         )
        ORDER BY r.reservation_id, rr.room_type_name`,
       [propertyId],
     );
     return rowsToReservations(rows);
+  }
+
+  async listCurrentReservations(propertyId: string): Promise<Reservation[]> {
+    const db = await this.db();
+    const rows = await db.select<SqlRow[]>(
+      `SELECT r.*, rr.room_type_name, rr.quantity
+       FROM reservation_snapshots r
+       JOIN import_snapshots i ON i.id = r.snapshot_id
+       LEFT JOIN reservation_room_snapshots rr
+         ON rr.snapshot_id = r.snapshot_id AND rr.reservation_id = r.reservation_id
+       WHERE r.property_id = $1
+         AND i.source = 'Amenitiz'
+         AND i.id = (
+           SELECT latest.id FROM import_snapshots latest
+           WHERE latest.property_id = $1 AND latest.source = 'Amenitiz'
+           ORDER BY latest.data_as_of DESC, latest.imported_at DESC, latest.rowid DESC
+           LIMIT 1
+         )
+       ORDER BY r.reservation_id, rr.room_type_name`,
+      [propertyId],
+    );
+    const current = rowsToReservations(rows);
+    const historical = await this.listHistoricalReservations(propertyId);
+    return mergeHistoricalFinal(current, historical);
   }
 
   async listSnapshotReservations(propertyId: string, snapshotId: string): Promise<Reservation[]> {
@@ -134,9 +178,10 @@ export class TauriRepository implements Repository {
     const rows = await db.select<SqlRow[]>(
       `SELECT r.*, rr.room_type_name, rr.quantity
        FROM reservation_snapshots r
+       JOIN import_snapshots i ON i.id = r.snapshot_id
        LEFT JOIN reservation_room_snapshots rr
          ON rr.snapshot_id = r.snapshot_id AND rr.reservation_id = r.reservation_id
-       WHERE r.property_id = $1 AND r.snapshot_id = $2
+       WHERE r.property_id = $1 AND r.snapshot_id = $2 AND i.source = 'Amenitiz'
        ORDER BY r.reservation_id, rr.room_type_name`,
       [propertyId, snapshotId],
     );
