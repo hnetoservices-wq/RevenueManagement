@@ -29,6 +29,24 @@ Amenitiz supplies revenue at reservation level, not nightly rate detail. When a 
 
 The property-level revenue total is reliable. Exact revenue and ADR by room type are not shown for multi-room reservations because the export does not identify the rate for each room. Occupancy by room type remains calculable from quantities.
 
+## Historical snapshots and pickup
+
+Each Amenitiz import is an immutable booking-position snapshot identified by its `data_as_of` date. The current Dashboard uses the complete snapshot with the newest `data_as_of` date for the property. Historical pickup compares the same stay-date period between snapshots; it does not merge missing reservations forward from older snapshots.
+
+## Days-before-arrival booking curve
+
+The Pace & Pickup lead-time curve uses the standard points D-180, D-90, D-60, D-30, D-14, D-7, D-3, and D-0.
+
+For each selected stay date and each D-point:
+
+1. Calculate the target observation date as `stay date - D`.
+2. Use the most recent imported snapshot whose `data_as_of` date is on or before that target date.
+3. Never use a later snapshot to backfill an earlier D-point.
+4. Exclude the observation when the selected snapshot is more than 14 days older than the target date.
+5. Aggregate only covered stay dates and show coverage explicitly as `covered stay dates / selected stay dates`.
+
+The curve is therefore snapshot-based historical booking position, not a reconstruction from the reservation `booked_at` field. Occupancy, room nights, room revenue, ADR, and RevPAR at a D-point are calculated only from covered stay dates. The average snapshot lag is displayed so sparse historical data is visible rather than silently treated as exact.
+
 ## Comparisons
 
 - Revenue, ADR, RevPAR, counts, lead time, and LOS show absolute and relative change where the comparison denominator is non-zero.
