@@ -37,6 +37,11 @@
 - Native and browser property persistence so each property keeps an independent room configuration and import history.
 - Executive Report Summary page that defaults to previous report versus latest report, with monthly Occupancy / ADR / room-revenue movement, snapshot pickup KPIs, pickup decomposition, and channel position.
 - Report Summary regression coverage for monthly closed-period handling, pickup reconciliation, and channel totals.
+- Inventory closure management in Settings with room type, unavailable quantity, inclusive date range, reason, editing, and removal.
+- Persistent unavailable-room inventory in SQLite and browser preview storage, including validation that overlapping closures never exceed configured room-type capacity.
+- Sellable-inventory denominators throughout core analytics, so Occupancy and RevPAR exclude recorded unavailable room nights while ADR remains based on sold room nights.
+- Unavailable-room indicators in the Occupancy calendar and unavailable room-night context in inventory KPIs.
+- Inventory-closure regression coverage for inclusive dates, reduced sellable inventory, overlap validation, and room-type filtering.
 - Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, Performance-period, incomplete-history, and analysis-filter regression coverage.
 
 ### Fixed
