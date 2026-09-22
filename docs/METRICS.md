@@ -33,6 +33,19 @@ The property-level revenue total is reliable. Exact revenue and ADR by room type
 
 Each Amenitiz import is an immutable booking-position snapshot identified by its `data_as_of` date. The current Dashboard uses the complete snapshot with the newest `data_as_of` date for the property. Historical pickup compares the same stay-date period between snapshots; it does not merge missing reservations forward from older snapshots.
 
+## Pickup decomposition
+
+Pickup decomposition compares reservation IDs between an earlier and later snapshot for the same selected stay dates and revenue basis. Each reservation-level before/after contribution is calculated with the same stay-date allocation rules as the main metrics, so the category totals reconcile to net room-night and room-revenue pickup.
+
+Changes are classified as:
+
+- **New booking:** the reservation ID is absent from the earlier snapshot and present as an active reservation in the later snapshot.
+- **Cancellation:** the same reservation ID changes from active to cancelled.
+- **Modification:** the same reservation ID remains present but analytically relevant fields change, including status, stay dates, room quantity/type, room revenue, extras, or tourist tax.
+- **Removed from report:** an active reservation ID exists in the earlier snapshot but is absent from the later snapshot. This is intentionally kept separate from cancellation because disappearance from an export does not by itself prove why the reservation disappeared.
+
+Reservations that do not affect the selected stay period are excluded from the decomposition. Unchanged reservation rows are not shown. The detail table exposes the reservation ID, before/after stay dates, changed fields, room-night delta, and room-revenue delta.
+
 ## Days-before-arrival booking curve
 
 The Pace & Pickup lead-time curve uses the standard points D-180, D-90, D-60, D-30, D-14, D-7, D-3, and D-0.
