@@ -81,6 +81,18 @@ struct PropertyRoomTypePayload {
     active_to: Option<String>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct InventoryClosurePayload {
+    id: String,
+    property_id: String,
+    room_type_id: String,
+    start_date: String,
+    end_date: String,
+    quantity: i64,
+    reason: String,
+}
+
 fn database_error(error: sqlx::Error) -> String {
     let message = error.to_string();
     if message.contains(
@@ -279,6 +291,168 @@ async fn save_property(app: tauri::AppHandle, property: PropertyPayload) -> Resu
 }
 
 #[tauri::command]
+async fn save_inventory_closure(
+    app: tauri::AppHandle,
+    closure: InventoryClosurePayload,
+) -> Result<(), String> {
+    if closure.id.trim().is_empty()
+        || closure.property_id.trim().is_empty()
+        || closure.room_type_id.trim().is_empty()
+    {
+        return Err("Inventory closure identifiers are required".to_string());
+    }
+    if closure.quantity <= 0 {
+        return Err("Unavailable quantity must be positive".to_string());
+    }
+    if closure.start_date.len() != 10
+        || closure.end_date.len() != 10
+        || closure.end_date < closure.start_date
+    {
+        return Err("Invalid inventory closure date range".to_string());
+    }
+
+    let options = database_options(&app)?;
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(|error| database_error_at("open database", error))?;
+
+    sqlx::query("BEGIN IMMEDIATE")
+        .execute(&mut connection)
+        .await
+        .map_err(|error| database_error_at("begin inventory closure transaction", error))?;
+
+    let inventory_count = sqlx::query_scalar::<_, i64>(
+        "SELECT inventory_count FROM room_types WHERE id = ? AND property_id = ? LIMIT 1",
+    )
+    .bind(&closure.room_type_id)
+    .bind(&closure.property_id)
+    .fetch_optional(&mut connection)
+    .await
+    .map_err(|error| database_error_at("load room inventory", error))?;
+
+    let Some(inventory_count) = inventory_count else {
+        rollback_if_active(&mut connection).await;
+        return Err("Selected room type does not belong to this property".to_string());
+    };
+
+    if closure.quantity > inventory_count {
+        rollback_if_active(&mut connection).await;
+        return Err("Unavailable quantity exceeds configured room inventory".to_string());
+    }
+
+    let existing_property = sqlx::query_scalar::<_, String>(
+        "SELECT property_id FROM inventory_closures WHERE id = ? LIMIT 1",
+    )
+    .bind(&closure.id)
+    .fetch_optional(&mut connection)
+    .await
+    .map_err(|error| database_error_at("check existing inventory closure", error))?;
+
+    if existing_property
+        .as_ref()
+        .is_some_and(|property_id| property_id != &closure.property_id)
+    {
+        rollback_if_active(&mut connection).await;
+        return Err("Inventory closure belongs to a different property".to_string());
+    }
+
+    let max_existing = sqlx::query_scalar::<_, i64>(
+        r#"WITH RECURSIVE dates(day) AS (
+             SELECT date(?)
+             UNION ALL
+             SELECT date(day, '+1 day') FROM dates WHERE day < date(?)
+           ), daily AS (
+             SELECT dates.day, COALESCE(SUM(ic.quantity), 0) AS unavailable
+             FROM dates
+             LEFT JOIN inventory_closures ic
+               ON ic.room_type_id = ?
+              AND ic.property_id = ?
+              AND ic.id <> ?
+              AND date(ic.start_date) <= dates.day
+              AND date(ic.end_date) >= dates.day
+             GROUP BY dates.day
+           )
+           SELECT COALESCE(MAX(unavailable), 0) FROM daily"#,
+    )
+    .bind(&closure.start_date)
+    .bind(&closure.end_date)
+    .bind(&closure.room_type_id)
+    .bind(&closure.property_id)
+    .bind(&closure.id)
+    .fetch_one(&mut connection)
+    .await
+    .map_err(|error| database_error_at("validate overlapping inventory closures", error))?;
+
+    if max_existing + closure.quantity > inventory_count {
+        rollback_if_active(&mut connection).await;
+        return Err("Overlapping closures exceed configured room inventory".to_string());
+    }
+
+    let result = sqlx::query(
+        r#"INSERT INTO inventory_closures
+           (id, property_id, room_type_id, start_date, end_date, quantity, reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             room_type_id = excluded.room_type_id,
+             start_date = excluded.start_date,
+             end_date = excluded.end_date,
+             quantity = excluded.quantity,
+             reason = excluded.reason
+           WHERE inventory_closures.property_id = excluded.property_id"#,
+    )
+    .bind(&closure.id)
+    .bind(&closure.property_id)
+    .bind(&closure.room_type_id)
+    .bind(&closure.start_date)
+    .bind(&closure.end_date)
+    .bind(closure.quantity)
+    .bind(closure.reason.trim())
+    .execute(&mut connection)
+    .await;
+
+    match result {
+        Ok(result) if result.rows_affected() == 1 => {}
+        Ok(_) => {
+            rollback_if_active(&mut connection).await;
+            return Err("Inventory closure could not be saved".to_string());
+        }
+        Err(error) => {
+            let error = database_error_at("save inventory closure", error);
+            rollback_if_active(&mut connection).await;
+            return Err(error);
+        }
+    }
+
+    if let Err(error) = sqlx::query("COMMIT").execute(&mut connection).await {
+        let error = database_error_at("commit inventory closure transaction", error);
+        rollback_if_active(&mut connection).await;
+        return Err(error);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn delete_inventory_closure(
+    app: tauri::AppHandle,
+    property_id: String,
+    closure_id: String,
+) -> Result<(), String> {
+    let options = database_options(&app)?;
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(|error| database_error_at("open database", error))?;
+
+    sqlx::query("DELETE FROM inventory_closures WHERE id = ? AND property_id = ?")
+        .bind(&closure_id)
+        .bind(&property_id)
+        .execute(&mut connection)
+        .await
+        .map_err(|error| database_error_at("delete inventory closure", error))?;
+    Ok(())
+}
+
+#[tauri::command]
 async fn save_import_snapshot(
     app: tauri::AppHandle,
     payload: ImportPayload,
@@ -426,6 +600,12 @@ pub fn run() {
             sql: include_str!("../migrations/002_current_snapshot.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "inventory_closures",
+            sql: include_str!("../migrations/003_inventory_closures.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
@@ -436,7 +616,12 @@ pub fn run() {
                 .add_migrations("sqlite:revenue-manager.db", migrations)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![save_property, save_import_snapshot])
+        .invoke_handler(tauri::generate_handler![
+            save_property,
+            save_inventory_closure,
+            delete_inventory_closure,
+            save_import_snapshot
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Local Revenue Manager");
 }
