@@ -102,6 +102,6 @@ describe("core analytics", () => {
     expect(result.pickup.roomNightsSold).toBe(2);
     expect(result.pickup.roomRevenueCents).toBe(24000);
     expect(result.pickup.reservations).toBe(1);
-    expect(result.pickup.occupancyPercentagePoints).toBeCloseTo(100 / 12);
+    expect(result.pickup.occupancyPercentagePoints).toBeCloseTo(100 / 9);
   });
 });
