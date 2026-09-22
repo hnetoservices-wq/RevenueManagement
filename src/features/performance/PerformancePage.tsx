@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { DashboardFilters, IsoDate, Property, Reservation } from "../../domain/models";
+import type { CoverageQuality, DashboardFilters, IsoDate, Property, Reservation } from "../../domain/models";
 import { calculatePerformanceAnalysis, type PerformanceComparisonMode } from "./performance";
 import "./performance.css";
 
@@ -34,6 +34,10 @@ function percent(value: number | null) {
 
 function tone(value: number | null) {
   return value === null || value === 0 ? "neutral" : value > 0 ? "positive" : "negative";
+}
+
+function qualityClass(quality: CoverageQuality | undefined) {
+  return quality ? `coverage-${quality}` : "coverage-insufficient";
 }
 
 function signed(value: number | null, digits = 1) {
@@ -73,17 +77,20 @@ export function PerformancePage({ property, reservations, filters, setFilters }:
 
   const comparisonName = comparisonMode === "previous_year" ? "PY" : comparisonMode === "previous_period" ? "Prev. period" : "Comparison";
   const current = analysis.current;
-  const comparison = analysis.comparison;
+  const comparison = analysis.comparisonReliable ? analysis.comparison : null;
+  const unavailableDelta = comparisonMode === "none"
+    ? { text: "No comparison", value: null }
+    : { text: "Insufficient comparison data", value: null };
 
   const kpis = [
-    { label: "Occupancy", value: percent(current.occupancy), delta: comparison ? rateDelta(current.occupancy, comparison.occupancy) : { text: "No comparison", value: null } },
-    { label: "ADR", value: money(current.adrCents, property.currency), delta: comparison ? relativeDelta(current.adrCents, comparison.adrCents) : { text: "No comparison", value: null } },
-    { label: "RevPAR", value: money(current.revparCents, property.currency), delta: comparison ? relativeDelta(current.revparCents, comparison.revparCents) : { text: "No comparison", value: null } },
-    { label: "Room revenue", value: money(current.roomRevenueCents, property.currency), delta: comparison ? relativeDelta(current.roomRevenueCents, comparison.roomRevenueCents) : { text: "No comparison", value: null } },
-    { label: "Room nights", value: number(current.roomNightsSold), delta: comparison ? relativeDelta(current.roomNightsSold, comparison.roomNightsSold) : { text: "No comparison", value: null } },
-    { label: "Reservations", value: number(current.reservations), delta: comparison ? relativeDelta(current.reservations, comparison.reservations) : { text: "No comparison", value: null } },
-    { label: "Average LOS", value: `${number(current.averageLengthOfStay, 1)} nights`, delta: comparison ? absoluteDelta(current.averageLengthOfStay, comparison.averageLengthOfStay, "nights") : { text: "No comparison", value: null } },
-    { label: "Average lead time", value: `${number(current.averageLeadTime, 1)} days`, delta: comparison ? absoluteDelta(current.averageLeadTime, comparison.averageLeadTime, "days") : { text: "No comparison", value: null } },
+    { label: "Occupancy", value: percent(current.occupancy), delta: comparison ? rateDelta(current.occupancy, comparison.occupancy) : unavailableDelta },
+    { label: "ADR", value: money(current.adrCents, property.currency), delta: comparison ? relativeDelta(current.adrCents, comparison.adrCents) : unavailableDelta },
+    { label: "RevPAR", value: money(current.revparCents, property.currency), delta: comparison ? relativeDelta(current.revparCents, comparison.revparCents) : unavailableDelta },
+    { label: "Room revenue", value: money(current.roomRevenueCents, property.currency), delta: comparison ? relativeDelta(current.roomRevenueCents, comparison.roomRevenueCents) : unavailableDelta },
+    { label: "Room nights", value: number(current.roomNightsSold), delta: comparison ? relativeDelta(current.roomNightsSold, comparison.roomNightsSold) : unavailableDelta },
+    { label: "Reservations", value: number(current.reservations), delta: comparison ? relativeDelta(current.reservations, comparison.reservations) : unavailableDelta },
+    { label: "Average LOS", value: `${number(current.averageLengthOfStay, 1)} nights`, delta: comparison ? absoluteDelta(current.averageLengthOfStay, comparison.averageLengthOfStay, "nights") : unavailableDelta },
+    { label: "Average lead time", value: `${number(current.averageLeadTime, 1)} days`, delta: comparison ? absoluteDelta(current.averageLeadTime, comparison.averageLeadTime, "days") : unavailableDelta },
   ];
 
   return <>
@@ -92,7 +99,11 @@ export function PerformancePage({ property, reservations, filters, setFilters }:
       <div className="performance-header-controls"><DateFilters filters={filters} setFilters={setFilters} /><label className="comparison-control">Compare<select value={comparisonMode} onChange={(event) => setComparisonMode(event.target.value as PerformanceComparisonMode)}><option value="previous_year">Previous year</option><option value="previous_period">Previous period</option><option value="none">None</option></select></label></div>
     </div>
 
-    {analysis.comparisonFilters && <div className="performance-comparison-band"><span>Selected period <strong>{filters.startDate} → {filters.endDate}</strong></span><span>Compared with <strong>{analysis.comparisonFilters.startDate} → {analysis.comparisonFilters.endDate}</strong></span></div>}
+    {analysis.comparisonFilters && <div className="performance-comparison-band"><span>Selected period <strong>{filters.startDate} → {filters.endDate}</strong></span><span>Compared with <strong>{analysis.comparisonFilters.startDate} → {analysis.comparisonFilters.endDate}</strong></span><span>Comparison coverage <strong>{percent(analysis.comparisonCoverage?.coverage ?? 0)}</strong></span></div>}
+
+    {analysis.currentCoverage.coverage < 1 && <div className={`performance-coverage-notice ${qualityClass(analysis.currentCoverage.quality)}`}><strong>Selected-period data is incomplete</strong><span>Available stay data begins at <b>{analysis.dataAvailabilityStartDate ?? "an unknown date"}</b>. Metrics use only the covered part of the selected range ({percent(analysis.currentCoverage.coverage)} coverage).</span></div>}
+
+    {comparisonMode !== "none" && analysis.comparisonCoverage && analysis.comparisonCoverage.coverage < 1 && <div className={`performance-coverage-notice ${qualityClass(analysis.comparisonCoverage.quality)}`}><strong>{analysis.comparisonReliable ? "Comparison period is partially covered" : "Comparison data is insufficient"}</strong><span>Historical stay data is conservatively available from <b>{analysis.dataAvailabilityStartDate ?? "an unknown date"}</b>. Only {percent(analysis.comparisonCoverage.coverage)} of the requested comparison period is covered. Headline deltas require at least {Math.round(analysis.reliableCoverageThreshold * 100)}% coverage; uncovered trend and monthly segments are left blank.</span></div>}
 
     <section className="performance-kpi-grid">
       {kpis.map((kpi) => <article className="kpi-card" key={kpi.label}><div className="kpi-label">{kpi.label}</div><strong>{kpi.value}</strong><span className={tone(kpi.delta.value)}>{kpi.delta.text}{comparison ? ` vs ${comparisonName}` : ""}</span></article>)}
@@ -111,13 +122,15 @@ export function PerformancePage({ property, reservations, filters, setFilters }:
     </section>
 
     <article className="panel performance-table-panel">
-      <div className="panel-heading"><div><h2>Monthly performance</h2><p>Calendar-month segments within the selected stay period.</p></div></div>
-      <div className="performance-table-wrap"><table><thead><tr><th>Month</th><th>Occupancy</th><th>Occ. Δ</th><th>ADR</th><th>ADR Δ</th><th>RevPAR</th><th>RevPAR Δ</th><th>Room nights</th><th>Room revenue</th><th>Revenue Δ</th></tr></thead><tbody>{analysis.monthly.map((row) => {
-        const occDelta = row.comparison ? rateDelta(row.current.occupancy, row.comparison.occupancy) : { text: "—", value: null };
-        const adrDelta = row.comparison ? relativeDelta(row.current.adrCents, row.comparison.adrCents) : { text: "—", value: null };
-        const revparDelta = row.comparison ? relativeDelta(row.current.revparCents, row.comparison.revparCents) : { text: "—", value: null };
-        const revenueDelta = row.comparison ? relativeDelta(row.current.roomRevenueCents, row.comparison.roomRevenueCents) : { text: "—", value: null };
-        return <tr key={row.startDate}><td><strong>{row.label}</strong><small>{row.startDate} → {row.endDate}</small></td><td>{percent(row.current.occupancy)}</td><td className={tone(occDelta.value)}>{occDelta.text}</td><td>{money(row.current.adrCents, property.currency)}</td><td className={tone(adrDelta.value)}>{adrDelta.text}</td><td>{money(row.current.revparCents, property.currency)}</td><td className={tone(revparDelta.value)}>{revparDelta.text}</td><td>{number(row.current.roomNightsSold)}</td><td>{money(row.current.roomRevenueCents, property.currency)}</td><td className={tone(revenueDelta.value)}>{revenueDelta.text}</td></tr>;
+      <div className="panel-heading"><div><h2>Monthly performance</h2><p>Calendar-month segments within the selected stay period. Comparison deltas require reliable coverage.</p></div></div>
+      <div className="performance-table-wrap"><table><thead><tr><th>Month</th><th>Occupancy</th><th>Occ. Δ</th><th>ADR</th><th>ADR Δ</th><th>RevPAR</th><th>RevPAR Δ</th><th>Room nights</th><th>Room revenue</th><th>Revenue Δ</th><th>Comp. coverage</th></tr></thead><tbody>{analysis.monthly.map((row) => {
+        const comparable = row.comparisonReliable ? row.comparison : null;
+        const occDelta = comparable ? rateDelta(row.current.occupancy, comparable.occupancy) : { text: "—", value: null };
+        const adrDelta = comparable ? relativeDelta(row.current.adrCents, comparable.adrCents) : { text: "—", value: null };
+        const revparDelta = comparable ? relativeDelta(row.current.revparCents, comparable.revparCents) : { text: "—", value: null };
+        const revenueDelta = comparable ? relativeDelta(row.current.roomRevenueCents, comparable.roomRevenueCents) : { text: "—", value: null };
+        const currentCovered = row.currentCoverage.coveredDays > 0;
+        return <tr key={row.startDate}><td><strong>{row.label}</strong><small>{row.startDate} → {row.endDate}</small></td><td>{currentCovered ? percent(row.current.occupancy) : "—"}</td><td className={tone(occDelta.value)}>{occDelta.text}</td><td>{currentCovered ? money(row.current.adrCents, property.currency) : "—"}</td><td className={tone(adrDelta.value)}>{adrDelta.text}</td><td>{currentCovered ? money(row.current.revparCents, property.currency) : "—"}</td><td className={tone(revparDelta.value)}>{revparDelta.text}</td><td>{currentCovered ? number(row.current.roomNightsSold) : "—"}</td><td>{currentCovered ? money(row.current.roomRevenueCents, property.currency) : "—"}</td><td className={tone(revenueDelta.value)}>{revenueDelta.text}</td><td className={qualityClass(row.comparisonCoverage?.quality)}>{row.comparisonCoverage ? percent(row.comparisonCoverage.coverage) : "—"}</td></tr>;
       })}</tbody></table></div>
     </article>
   </>;
