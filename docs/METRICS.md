@@ -47,6 +47,26 @@ For each selected stay date and each D-point:
 
 The curve is therefore snapshot-based historical booking position, not a reconstruction from the reservation `booked_at` field. Occupancy, room nights, room revenue, ADR, and RevPAR at a D-point are calculated only from covered stay dates. The average snapshot lag is displayed so sparse historical data is visible rather than silently treated as exact.
 
+### Coverage quality
+
+Lead-time observations use three coverage classes:
+
+- **Reliable:** at least 80% of selected stay dates are covered. These points are shown as the normal solid booking curve and may be used for same-time-last-year percentage-point comparisons.
+- **Partial:** at least 50% but less than 80% of selected stay dates are covered. These observations may be shown as dashed points/segments but are not used for headline STLY deltas.
+- **Insufficient:** less than 50% coverage. Raw diagnostic values remain visible in the table, but the occupancy point is not plotted.
+
+This prevents a small surviving subset of stay dates from visually appearing comparable with a near-complete period.
+
+## Same-time-last-year pace
+
+Same-time-last-year (STLY) pace compares the selected stay period with the equivalent stay dates one year earlier on the same D-180 to D-0 lead-time axis.
+
+For example, D-30 for October 2026 is compared with D-30 for October 2025, not with October 2025's final booking position. Both sides are reconstructed independently from the immutable historical snapshots using the same 14-day maximum snapshot lag.
+
+An occupancy percentage-point delta is only calculated when both the current period and prior-year period are **Reliable** at that D-point. Partial or insufficient coverage remains visible but does not generate a precise STLY delta.
+
+If no prior-year snapshots exist around the equivalent lead dates, the application reports that prior-year booking-position coverage is unavailable rather than substituting final/latest data.
+
 ## Comparisons
 
 - Revenue, ADR, RevPAR, counts, lead time, and LOS show absolute and relative change where the comparison denominator is non-zero.
