@@ -19,13 +19,16 @@
 - Performance comparison modes for previous year, immediately preceding equal-length period, or no comparison.
 - Automatic daily, weekly, and monthly Performance trend granularity based on the selected stay-date range.
 - Monthly Performance table with occupancy, ADR, RevPAR, room nights, room revenue, and comparison deltas.
-- Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, and Performance-period regression coverage.
+- Performance data-coverage indicators and monthly comparison-coverage diagnostics.
+- Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, Performance-period, and incomplete-history regression coverage.
 
 ### Fixed
 
 - Dashboard current-state metrics now use the complete newest `data_as_of` snapshot instead of carrying forward the newest known version of each reservation from older snapshots.
 - Importing an older historical file after a newer file no longer changes the Dashboard's current booking position.
 - Low-coverage lead-time observations no longer appear as directly comparable full-period booking-curve points.
+- Performance previous-year/previous-period comparisons no longer treat unavailable historical dates as zero occupancy or zero revenue.
+- Aggregate Performance comparison deltas are suppressed when fewer than 80% of the requested comparison dates are covered.
 
 ## 0.1.0 - 2026-09-21
 
