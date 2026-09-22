@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import { parseIsoDate } from "../../domain/dates";
 import type { DashboardFilters, IsoDate, Property, Reservation } from "../../domain/models";
+import { BookingActivityPage } from "../booking/BookingActivityPage";
 import type { PerformanceComparisonMode } from "../performance/performance";
 import { calculateRevenueAnalysis } from "./revenue";
 import "./revenue.css";
@@ -27,6 +28,8 @@ interface Props {
   filters: DashboardFilters;
   setFilters: (filters: DashboardFilters) => void;
 }
+
+type RevenueView = "stay" | "booking";
 
 const MIX_COLORS = ["#1f6f68", "#c08a3e", "#718096"];
 
@@ -63,11 +66,22 @@ function DateFilters({ filters, setFilters }: { filters: DashboardFilters; setFi
 }
 
 export function RevenuePage({ property, reservations, coverageReservations = reservations, filters, setFilters }: Props) {
+  const [view, setView] = useState<RevenueView>("stay");
   const [comparisonMode, setComparisonMode] = useState<PerformanceComparisonMode>("previous_year");
   const analysis = useMemo(
     () => calculateRevenueAnalysis(property, reservations, filters, comparisonMode, coverageReservations),
     [property, reservations, coverageReservations, filters, comparisonMode],
   );
+
+  if (view === "booking") {
+    return <>
+      <div className="revenue-view-tabs" role="tablist" aria-label="Revenue analysis mode">
+        <button type="button" onClick={() => setView("stay")}>Stay-date Revenue</button>
+        <button type="button" className="active" onClick={() => setView("booking")}>Booking Activity</button>
+      </div>
+      <BookingActivityPage property={property} reservations={reservations} coverageReservations={coverageReservations} />
+    </>;
+  }
 
   const comparisonName = comparisonMode === "previous_year" ? "PY" : comparisonMode === "previous_period" ? "Prev. period" : "Comparison";
   const comparison = analysis.comparisonReliable ? analysis.comparison : null;
@@ -83,6 +97,11 @@ export function RevenuePage({ property, reservations, coverageReservations = res
   ];
 
   return <>
+    <div className="revenue-view-tabs" role="tablist" aria-label="Revenue analysis mode">
+      <button type="button" className="active" onClick={() => setView("stay")}>Stay-date Revenue</button>
+      <button type="button" onClick={() => setView("booking")}>Booking Activity</button>
+    </div>
+
     <div className="page-heading revenue-heading">
       <div><p className="eyebrow">Commercial analysis</p><h1>Revenue</h1><p>Analyse room revenue, rate, revenue mix, and channel contribution across the selected stay dates.</p></div>
       <div className="revenue-header-controls"><DateFilters filters={filters} setFilters={setFilters} /><label className="comparison-control">Compare<select value={comparisonMode} onChange={(event) => setComparisonMode(event.target.value as PerformanceComparisonMode)}><option value="previous_year">Previous year</option><option value="previous_period">Previous period</option><option value="none">None</option></select></label></div>
