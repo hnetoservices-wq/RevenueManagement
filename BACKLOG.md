@@ -4,7 +4,6 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 
 ## Next
 
-- Add channel, room type, and status global filters shared across analytical pages.
 - Build the dedicated Occupancy dashboard with room-type occupancy, weekday patterns, and calendar-style analysis.
 - Build the dedicated Revenue dashboard with ADR, RevPAR, revenue mix, and channel contribution.
 - Make days-before-arrival points configurable after the fixed D-180 / D-90 / D-60 / D-30 / D-14 / D-7 / D-3 / D-0 model is validated with real data.
