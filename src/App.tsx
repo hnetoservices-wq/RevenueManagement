@@ -31,11 +31,12 @@ import type {
 import { createRepository } from "./data/createRepository";
 import { DuplicateImportError } from "./data/repository";
 import { parseAmenitizFile } from "./features/import/amenitiz";
+import { PacePickupPage } from "./features/pace/PacePickupPage";
 
 const repository = createRepository();
 const COLORS = ["#1f6f68", "#d19a4a", "#4d6b94", "#845d80", "#79905d", "#ba6c57"];
 
-type Page = "dashboard" | "imports";
+type Page = "dashboard" | "pace" | "imports";
 
 interface ChartPoint {
   label: string;
@@ -245,7 +246,7 @@ function App() {
           <NavButton icon="trend" label="Performance" disabled />
           <NavButton icon="bed" label="Occupancy" disabled />
           <NavButton icon="coin" label="Revenue" disabled />
-          <NavButton icon="pace" label="Pace & Pickup" disabled />
+          <NavButton active={page === "pace"} onClick={() => setPage("pace")} icon="pace" label="Pace & Pickup" />
           <div className="nav-divider" />
           <NavButton active={page === "imports"} onClick={() => setPage("imports")} icon="upload" label="Imports" />
           <NavButton icon="settings" label="Settings" disabled />
@@ -289,7 +290,7 @@ function App() {
                 </>
               )}
             </>
-          ) : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
+          ) : page === "pace" ? <PacePickupPage imports={imports} property={property} filters={filters} setFilters={setFilters} loadSnapshotReservations={(snapshotId) => repository.listSnapshotReservations(property.id, snapshotId)} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
         </div>
       </main>
 
