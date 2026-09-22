@@ -21,6 +21,7 @@ import type {
   Reservation,
   SnapshotReservationSet,
 } from "../../domain/models";
+import { PickupDecompositionPanel } from "./PickupDecompositionPanel";
 import "./pace.css";
 
 interface PacePoint {
@@ -223,6 +224,8 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
           <div className="pace-table-wrap lead-time-table lead-diagnostic-table"><table><thead><tr><th>Lead point</th><th>OTB occupancy</th><th>Room nights</th><th>Room revenue</th><th>ADR</th><th>Coverage</th><th>Avg. snapshot lag</th></tr></thead><tbody>{leadCurve.map((point, index) => { const quality = comparisonPoints[index]?.currentQuality ?? "insufficient"; return <tr key={point.daysBeforeArrival}><td><strong>{point.label}</strong></td><td>{percentage(point.occupancy)}</td><td>{point.coveredStayDates ? point.roomNightsSold : "—"}</td><td>{point.coveredStayDates ? money(point.roomRevenueCents, property.currency) : "—"}</td><td>{money(point.adrCents, property.currency)}</td><td className={qualityClass(quality)}>{percentage(point.coverage)} <small>({point.coveredStayDates}/{point.totalStayDates}) · {qualityLabel(quality)}</small></td><td>{point.averageSnapshotLagDays === null ? "—" : `${point.averageSnapshotLagDays.toFixed(1)} days`}</td></tr>; })}</tbody></table></div>
         </> : <div className="lead-time-empty">No lead-time points could be calculated for the selected stay period.</div>}
       </article>
+
+      <PickupDecompositionPanel imports={imports} property={property} filters={filters} loadSnapshotReservations={loadSnapshotReservations} />
 
       <article className="panel pace-table-panel">
         <div className="panel-heading"><div><h2>Snapshot-by-snapshot pickup</h2><p>Each row compares that booking position with the immediately previous imported snapshot.</p></div></div>
