@@ -1,6 +1,7 @@
 export type IsoDate = `${number}-${number}-${number}`;
 export type NormalizedStatus = "active" | "cancelled" | "ignored";
 export type RevenueBasis = "inclusive" | "exclusive";
+export type CoverageQuality = "reliable" | "partial" | "insufficient";
 
 export interface RoomType {
   id: string;
@@ -179,4 +180,22 @@ export interface LeadTimeCurvePoint {
 export interface LeadTimeCurveResult {
   points: LeadTimeCurvePoint[];
   maxSnapshotLagDays: number;
+}
+
+export interface LeadTimePaceComparisonPoint {
+  daysBeforeArrival: number;
+  label: string;
+  current: LeadTimeCurvePoint;
+  previousYear: LeadTimeCurvePoint;
+  currentQuality: CoverageQuality;
+  previousYearQuality: CoverageQuality;
+  occupancyPercentagePointChange: number | null;
+}
+
+export interface LeadTimePaceComparisonResult {
+  points: LeadTimePaceComparisonPoint[];
+  current: LeadTimeCurveResult;
+  previousYear: LeadTimeCurveResult;
+  reliableCoverageThreshold: number;
+  partialCoverageThreshold: number;
 }
