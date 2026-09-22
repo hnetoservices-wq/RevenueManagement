@@ -5,7 +5,6 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 ## Next
 
 - Make days-before-arrival points configurable after the fixed D-180 / D-90 / D-60 / D-30 / D-14 / D-7 / D-3 / D-0 model is validated with real data.
-- Add stay-date / booking-date analysis mode.
 
 ## Property and commercial configuration
 
@@ -22,6 +21,10 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 - Lead-time and length-of-stay histograms.
 - Deterministic insight engine.
 - Budget and target input workflow.
+
+## Historical data recovery
+
+- Map the pre-Amenitiz manual Excel reservation sheets into an importable legacy CSV structure so previous-year booking and stay history can be reconstructed without inventing missing fields such as tourist tax.
 
 ## Exports
 
