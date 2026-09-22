@@ -154,3 +154,29 @@ export interface SnapshotComparisonResult {
   current: DashboardMetrics;
   pickup: SnapshotPickup;
 }
+
+export interface SnapshotReservationSet {
+  snapshotId: string;
+  dataAsOf: IsoDate;
+  reservations: Reservation[];
+}
+
+export interface LeadTimeCurvePoint {
+  daysBeforeArrival: number;
+  label: string;
+  roomNightsSold: number;
+  availableRoomNights: number;
+  occupancy: number | null;
+  roomRevenueCents: number;
+  adrCents: number | null;
+  revparCents: number | null;
+  coveredStayDates: number;
+  totalStayDates: number;
+  coverage: number;
+  averageSnapshotLagDays: number | null;
+}
+
+export interface LeadTimeCurveResult {
+  points: LeadTimeCurvePoint[];
+  maxSnapshotLagDays: number;
+}
