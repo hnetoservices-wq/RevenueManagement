@@ -1,5 +1,6 @@
 import { addDays, differenceInCalendarDays, max, min } from "date-fns";
 import { enumerateDates, nightsBetween, parseIsoDate, shiftYear, toIsoDate } from "./dates";
+import { availableInventoryForDate, unavailableInventoryForDate } from "./inventory";
 import type {
   CoverageQuality,
   DashboardFilters,
@@ -39,13 +40,6 @@ function overlapNights(reservation: Reservation, start: IsoDate, end: IsoDate): 
   const periodEndExclusive = addDays(parseIsoDate(end), 1);
   const overlapEnd = min([parseIsoDate(reservation.checkOut), periodEndExclusive]);
   return Math.max(0, differenceInCalendarDays(overlapEnd, overlapStart));
-}
-
-function inventoryForDate(property: Property, date: IsoDate): number {
-  return property.roomTypes.reduce((sum, room) => {
-    const active = (!room.activeFrom || room.activeFrom <= date) && (!room.activeTo || room.activeTo >= date);
-    return sum + (active ? room.inventoryCount : 0);
-  }, 0);
 }
 
 function latestSnapshotAtOrBefore(
@@ -131,7 +125,8 @@ export function calculateMetrics(
     channelMap.set(reservation.source, channel);
   }
 
-  const availableRoomNights = dates.reduce((sum, date) => sum + inventoryForDate(property, date), 0);
+  const availableRoomNights = dates.reduce((sum, date) => sum + availableInventoryForDate(property, date), 0);
+  const unavailableRoomNights = dates.reduce((sum, date) => sum + unavailableInventoryForDate(property, date), 0);
   const leadTimes = active
     .filter((reservation) => reservation.bookedAt !== null)
     .map((reservation) => differenceInCalendarDays(parseIsoDate(reservation.checkIn), parseIsoDate(reservation.bookedAt!)))
@@ -141,7 +136,8 @@ export function calculateMetrics(
   const daily = dates.map((date) => {
     const dayReservations = active.filter((reservation) => reservation.checkIn <= date && reservation.checkOut > date);
     const sold = dayReservations.reduce((sum, reservation) => sum + reservation.roomQuantity, 0);
-    const available = inventoryForDate(property, date);
+    const available = availableInventoryForDate(property, date);
+    const unavailable = unavailableInventoryForDate(property, date);
     const revenue = dayReservations.reduce((sum, reservation) => {
       const fullNights = nightsBetween(reservation.checkIn, reservation.checkOut);
       const total = filters.revenueBasis === "inclusive" ? reservation.roomRevenueInclCents : reservation.roomRevenueExclCents;
@@ -151,6 +147,7 @@ export function calculateMetrics(
       date,
       roomNightsSold: sold,
       availableRoomNights: available,
+      unavailableRoomNights: unavailable,
       occupancy: available ? sold / available : null,
       roomRevenueCents: Math.round(revenue),
       adrCents: sold ? revenue / sold : null,
@@ -168,6 +165,7 @@ export function calculateMetrics(
     touristTaxCents,
     roomNightsSold,
     availableRoomNights,
+    unavailableRoomNights,
     reservations: active.length,
     averageLeadTime: average(leadTimes),
     medianLeadTime: median(leadTimes),
