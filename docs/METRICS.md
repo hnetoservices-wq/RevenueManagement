@@ -5,7 +5,7 @@ All stay-date ranges are inclusive of the selected start and end dates. Check-ou
 | Metric | Definition |
 | --- | --- |
 | Room nights sold | Sum of active booked room quantities for every occupied stay night in the selected period. |
-| Available room nights | Configured active inventory multiplied by available dates in the selected period. Inventory exceptions are deferred. |
+| Available room nights | Configured active inventory for each stay date minus recorded unavailable-room quantities for that date. |
 | Occupancy | Room nights sold divided by available room nights. |
 | Room revenue | Reservation room revenue allocated to the selected stay nights, excluding cancelled reservations. |
 | ADR | Room revenue divided by room nights sold. |
@@ -16,6 +16,18 @@ All stay-date ranges are inclusive of the selected start and end dates. Check-ou
 | Lead time | Calendar days from booked date to check-in. Negative values are flagged. |
 | Cancellation rate | Cancelled reservations divided by active plus cancelled reservations whose stays intersect the period. |
 | Total revenue | Allocated room revenue plus allocated extra revenue plus tourist tax. |
+
+## Inventory closures and sellable inventory
+
+A room closure records a room type, unavailable quantity, inclusive start date, inclusive end date, and optional operational reason. Multiple closures may overlap only when their combined unavailable quantity does not exceed the configured inventory for that room type.
+
+For each stay date:
+
+`Sellable inventory = configured active inventory - unavailable inventory`
+
+Occupancy and RevPAR therefore use the inventory that could actually be sold rather than assuming every configured room was available every day. ADR is unaffected directly because its denominator remains sold room nights. Room-type filters keep only the selected room type and its associated closures, so room-type occupancy continues to use the correct denominator.
+
+Closures are stay-date inventory facts in the current model. They are not yet versioned by historical booking-position date; if that distinction later becomes necessary for exact historical pace reconstruction, closure-history versioning must be added separately.
 
 ## Revenue basis
 
