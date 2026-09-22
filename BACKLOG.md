@@ -4,8 +4,8 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 
 ## Next
 
+- Enable a dedicated Performance dashboard using the validated stay-date metrics.
 - Make days-before-arrival points configurable after the fixed D-180 / D-90 / D-60 / D-30 / D-14 / D-7 / D-3 / D-0 model is validated with real data.
-- Decompose pickup into new bookings, cancellations, and reservation modifications.
 - Add stay-date / booking-date analysis mode.
 - Add channel, room type, and status global filters.
 
