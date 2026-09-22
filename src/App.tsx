@@ -40,11 +40,12 @@ import { parseAmenitizFile } from "./features/import/amenitiz";
 import { OccupancyPage } from "./features/occupancy/OccupancyPage";
 import { PacePickupPage } from "./features/pace/PacePickupPage";
 import { PerformancePage } from "./features/performance/PerformancePage";
+import { RevenuePage } from "./features/revenue/RevenuePage";
 
 const repository = createRepository();
 const COLORS = ["#1f6f68", "#d19a4a", "#4d6b94", "#845d80", "#79905d", "#ba6c57"];
 
-type Page = "dashboard" | "performance" | "occupancy" | "pace" | "imports";
+type Page = "dashboard" | "performance" | "occupancy" | "revenue" | "pace" | "imports";
 
 interface ChartPoint {
   label: string;
@@ -267,7 +268,7 @@ function App() {
           <NavButton active={page === "dashboard"} onClick={() => setPage("dashboard")} icon="grid" label="Dashboard" />
           <NavButton active={page === "performance"} onClick={() => setPage("performance")} icon="trend" label="Performance" />
           <NavButton active={page === "occupancy"} onClick={() => setPage("occupancy")} icon="bed" label="Occupancy" />
-          <NavButton icon="coin" label="Revenue" disabled />
+          <NavButton active={page === "revenue"} onClick={() => setPage("revenue")} icon="coin" label="Revenue" />
           <NavButton active={page === "pace"} onClick={() => setPage("pace")} icon="pace" label="Pace & Pickup" />
           <div className="nav-divider" />
           <NavButton active={page === "imports"} onClick={() => setPage("imports")} icon="upload" label="Imports" />
@@ -313,7 +314,7 @@ function App() {
                 </>
               )}
             </>
-          ) : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "occupancy" ? <OccupancyPage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
+          ) : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "occupancy" ? <OccupancyPage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "revenue" ? <RevenuePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
         </div>
       </main>
 
