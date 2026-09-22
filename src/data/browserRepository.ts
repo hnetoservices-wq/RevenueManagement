@@ -34,9 +34,10 @@ export class BrowserRepository implements Repository {
     } else {
       const existing = this.state.properties[existingIndex];
       const suppliedIds = new Set(property.roomTypes.map((room) => room.id));
+      const retiredAt = new Date().toISOString().slice(0, 10) as Property["roomTypes"][number]["activeTo"];
       const retired = existing.roomTypes
         .filter((room) => !suppliedIds.has(room.id))
-        .map((room) => ({ ...room, inventoryCount: 0 }));
+        .map((room) => ({ ...room, activeTo: room.activeTo ?? retiredAt }));
       this.state.properties[existingIndex] = structuredClone({
         ...property,
         roomTypes: [...property.roomTypes, ...retired],
