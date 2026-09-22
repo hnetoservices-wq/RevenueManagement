@@ -175,3 +175,126 @@ html[data-theme="dark"] .recharts-tooltip-wrapper > div { background: #18242a !i
 @media (max-width: 900px) {
   .settings-preferences-grid { grid-template-columns: 1fr; }
 }
+
+
+/* Complete dark-theme coverage for feature-specific surfaces. */
+html[data-theme="dark"] .snapshot-selectors,
+html[data-theme="dark"] .snapshot-kpi,
+html[data-theme="dark"] .report-summary-latest,
+html[data-theme="dark"] .report-change-card,
+html[data-theme="dark"] .lead-quality-summary > div,
+html[data-theme="dark"] .lead-time-empty,
+html[data-theme="dark"] .pickup-category-card,
+html[data-theme="dark"] .pickup-order-warning,
+html[data-theme="dark"] .pickup-loading,
+html[data-theme="dark"] .revenue-view-tabs,
+html[data-theme="dark"] .analysis-estimate-note,
+html[data-theme="dark"] .empty-state,
+html[data-theme="dark"] .issues,
+html[data-theme="dark"] .issues-heading,
+html[data-theme="dark"] .import-stats,
+html[data-theme="dark"] .import-destination,
+html[data-theme="dark"] .clean-import {
+  background: #162127 !important;
+  border-color: #2a3940 !important;
+  color: #dfe8e6 !important;
+}
+
+html[data-theme="dark"] .snapshot-selectors select,
+html[data-theme="dark"] .report-summary-snapshot select,
+html[data-theme="dark"] .report-summary-latest select,
+html[data-theme="dark"] .pickup-selectors select,
+html[data-theme="dark"] .date-as-of input,
+html[data-theme="dark"] .settings-field input,
+html[data-theme="dark"] .settings-room-row input {
+  background: #10191e !important;
+  color: #e4ecea !important;
+  border-color: #34434a !important;
+}
+
+html[data-theme="dark"] .snapshot-selectors label,
+html[data-theme="dark"] .snapshot-period,
+html[data-theme="dark"] .report-summary-snapshot > span,
+html[data-theme="dark"] .report-summary-latest > span,
+html[data-theme="dark"] .report-summary-latest small,
+html[data-theme="dark"] .report-change-card > span,
+html[data-theme="dark"] .report-change-card small,
+html[data-theme="dark"] .lead-quality-summary span,
+html[data-theme="dark"] .lead-quality-summary small,
+html[data-theme="dark"] .pace-curve-legend,
+html[data-theme="dark"] .lead-time-heading p:not(.eyebrow),
+html[data-theme="dark"] .lead-diagnostic-heading span,
+html[data-theme="dark"] .pickup-decomposition-heading p:not(.eyebrow),
+html[data-theme="dark"] .pickup-selectors label,
+html[data-theme="dark"] .pickup-period-line,
+html[data-theme="dark"] .pickup-category-card > span,
+html[data-theme="dark"] .pickup-category-card > small,
+html[data-theme="dark"] .pickup-reconciliation > span,
+html[data-theme="dark"] .pickup-reconciliation > small,
+html[data-theme="dark"] .revenue-mix-legend small,
+html[data-theme="dark"] .revenue-date-list span,
+html[data-theme="dark"] .revenue-date-list small,
+html[data-theme="dark"] .occupancy-date-list span,
+html[data-theme="dark"] .occupancy-date-list small {
+  color: #9eadaa !important;
+}
+
+html[data-theme="dark"] .snapshot-period strong,
+html[data-theme="dark"] .snapshot-kpi > strong,
+html[data-theme="dark"] .report-change-card > strong,
+html[data-theme="dark"] .lead-quality-summary strong,
+html[data-theme="dark"] .lead-diagnostic-heading strong,
+html[data-theme="dark"] .pickup-category-card > strong,
+html[data-theme="dark"] .revenue-mix-legend strong,
+html[data-theme="dark"] .revenue-mix-legend em,
+html[data-theme="dark"] .revenue-date-list strong,
+html[data-theme="dark"] .occupancy-date-list strong,
+html[data-theme="dark"] .occupancy-month h3,
+html[data-theme="dark"] .booking-summary-list strong,
+html[data-theme="dark"] .settings-help strong,
+html[data-theme="dark"] .settings-source strong {
+  color: #f0f5f4 !important;
+}
+
+html[data-theme="dark"] .revenue-view-tabs {
+  background: #111b20 !important;
+}
+html[data-theme="dark"] .revenue-view-tabs button {
+  color: #a9b7b4 !important;
+}
+html[data-theme="dark"] .revenue-view-tabs button.active {
+  background: #26363c !important;
+  color: #f0f5f4 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] .report-observation {
+  background: #19342e !important;
+  color: #8fd3bd !important;
+}
+html[data-theme="dark"] .report-observation.closed {
+  background: #263239 !important;
+  color: #b7c2c0 !important;
+}
+
+html[data-theme="dark"] .pickup-change-badge.pickup-new { background: #19342e !important; color: #8fd3bd !important; }
+html[data-theme="dark"] .pickup-change-badge.pickup-cancelled { background: #3a2423 !important; color: #e5a29b !important; }
+html[data-theme="dark"] .pickup-change-badge.pickup-modified { background: #382f1e !important; color: #dfbe7a !important; }
+html[data-theme="dark"] .pickup-change-badge.pickup-removed { background: #29343a !important; color: #bac4c2 !important; }
+
+html[data-theme="dark"] .occ-low,
+html[data-theme="dark"] .occ-none { background: #1a252b !important; color: #9caaa8 !important; border-color: #2b3940 !important; }
+html[data-theme="dark"] .occ-medium { background: #19302d !important; color: #9ac7be !important; border-color: #29443f !important; }
+html[data-theme="dark"] .occ-high { background: #1d4943 !important; color: #c1e2db !important; border-color: #2b5b54 !important; }
+
+html[data-theme="dark"] .booking-summary-list > div,
+html[data-theme="dark"] .occupancy-date-list > div,
+html[data-theme="dark"] .revenue-date-list > div,
+html[data-theme="dark"] .lead-time-table,
+html[data-theme="dark"] .lead-diagnostic-heading,
+html[data-theme="dark"] .pickup-entry-table,
+html[data-theme="dark"] .issue-list > div,
+html[data-theme="dark"] .import-stats div,
+html[data-theme="dark"] .modal footer {
+  border-color: #28363d !important;
+}
