@@ -1,0 +1,48 @@
+.report-summary-heading { align-items: flex-end; }
+.report-summary-selector { display: grid; grid-template-columns: minmax(320px, 1fr) 50px minmax(320px, 1fr); align-items: center; gap: 12px; padding: 16px 18px; margin-bottom: 16px; }
+.report-summary-snapshot, .report-summary-latest { display: flex; flex-direction: column; gap: 6px; }
+.report-summary-snapshot > span, .report-summary-latest > span { color: #7b858d; font-size: 9px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.report-summary-snapshot select { min-height: 40px; border-radius: 8px; border: 1px solid #dce1e5; padding: 0 12px; background: #fff; color: #1d2a33; font: inherit; }
+.report-summary-latest { padding: 10px 12px; background: #f7f9fa; border-radius: 9px; border: 1px solid #e4e7ea; }
+.report-summary-latest strong { font-size: 15px; }
+.report-summary-latest small { color: #77808a; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report-summary-arrow { text-align: center; color: #72808a; font-size: 19px; }
+.report-summary-loading, .report-summary-empty { padding: 32px; text-align: center; color: #6f7982; }
+.report-summary-empty h2 { margin: 0 0 7px; color: #17242d; }
+.report-summary-empty p { margin: 0; }
+.report-summary-kpis { display: grid; grid-template-columns: repeat(4, minmax(170px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.report-summary-kpis .kpi-card small { display: block; margin-top: 5px; color: #8a9299; font-size: 9px; }
+.report-summary-change-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.report-change-card { background: #fff; border: 1px solid #dde2e6; border-top-width: 2px; border-radius: 10px; padding: 14px 15px; min-height: 96px; }
+.report-change-card > span { display: block; color: #68737c; font-size: 9px; font-weight: 800; margin-bottom: 8px; }
+.report-change-card > strong { font-size: 22px; color: #17242d; }
+.report-change-card small { display: flex; gap: 10px; margin-top: 7px; font-size: 9px; color: #7b858d; }
+.report-change-card small b { font-weight: 700; }
+.change-new { border-top-color: #3d9b78; }
+.change-cancelled { border-top-color: #cc6b5f; }
+.change-modified { border-top-color: #c18b34; }
+.change-removed { border-top-color: #84919b; }
+.change-net { border-top-color: #1f6f68; background: #f6faf9; }
+.report-monthly-panel, .report-channel-panel { padding: 0; overflow: hidden; margin-bottom: 16px; }
+.report-monthly-panel .panel-heading, .report-channel-panel .panel-heading { padding: 20px 20px 8px; }
+.report-summary-table { overflow-x: auto; }
+.report-summary-table table { width: 100%; min-width: 980px; border-collapse: collapse; }
+.report-summary-table th { background: #f5f6f7; color: #78828b; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 12px 14px; text-align: left; }
+.report-summary-table td { padding: 12px 14px; border-top: 1px solid #edf0f2; font-size: 10px; color: #35424b; }
+.report-summary-table td strong { color: #17242d; }
+.report-summary-table td.positive, .report-summary-kpis .positive, .report-change-card .positive { color: #298063; font-weight: 700; }
+.report-summary-table td.negative, .report-summary-kpis .negative, .report-change-card .negative { color: #bc5a50; font-weight: 700; }
+.report-summary-table td.neutral, .report-summary-kpis .neutral, .report-change-card .neutral { color: #7d878f; }
+.report-observation { display: inline-flex; padding: 4px 7px; border-radius: 999px; background: #edf6f4; color: #276f66; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.report-observation.closed { background: #eef1f3; color: #68737c; }
+
+@media (max-width: 1200px) {
+  .report-summary-kpis { grid-template-columns: repeat(2, minmax(170px, 1fr)); }
+  .report-summary-change-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+}
+
+@media (max-width: 800px) {
+  .report-summary-selector { grid-template-columns: 1fr; }
+  .report-summary-arrow { transform: rotate(90deg); }
+  .report-summary-kpis, .report-summary-change-grid { grid-template-columns: 1fr; }
+}
