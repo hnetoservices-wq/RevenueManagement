@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateMetrics } from "../src/domain/analytics";
+import { calculateMetrics, calculateSnapshotComparison } from "../src/domain/analytics";
 import { MALMERENDAS_PROPERTY } from "../src/domain/property";
 import type { Reservation } from "../src/domain/models";
 
@@ -76,5 +76,32 @@ describe("core analytics", () => {
     });
     expect(result.roomNightsSold).toBe(1);
     expect(result.roomRevenueCents).toBe(10600);
+  });
+
+  it("calculates pickup between two snapshots for the same stay period", () => {
+    const newReservation: Reservation = {
+      ...baseReservation,
+      reservationId: "R-2",
+      checkIn: "2026-01-11",
+      checkOut: "2026-01-13",
+      roomRevenueInclCents: 24000,
+      roomRevenueExclCents: 22642,
+      touristTaxCents: 1200,
+      extraRevenueInclCents: 0,
+      extraRevenueExclCents: 0,
+    };
+    const result = calculateSnapshotComparison(
+      MALMERENDAS_PROPERTY,
+      [baseReservation],
+      [baseReservation, newReservation],
+      { startDate: "2026-01-10", endDate: "2026-01-12", revenueBasis: "inclusive" },
+    );
+
+    expect(result.baseline.roomNightsSold).toBe(3);
+    expect(result.current.roomNightsSold).toBe(5);
+    expect(result.pickup.roomNightsSold).toBe(2);
+    expect(result.pickup.roomRevenueCents).toBe(24000);
+    expect(result.pickup.reservations).toBe(1);
+    expect(result.pickup.occupancyPercentagePoints).toBeCloseTo(100 / 12);
   });
 });
