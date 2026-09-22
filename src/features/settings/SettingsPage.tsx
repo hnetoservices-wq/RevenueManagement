@@ -167,6 +167,15 @@ export function SettingsPage({ property, importCount, onSave, onSaveClosure, onD
     setClosureError(null);
   }
 
+  function duplicateClosure(closure: InventoryClosure) {
+    setClosureDraft({ ...closure, id: crypto.randomUUID() });
+    setEditingClosure(false);
+    setClosureError(null);
+    window.setTimeout(() => {
+      document.querySelector(".settings-closure-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
+  }
+
   function resetClosure() {
     setClosureDraft(blankClosure(property));
     setEditingClosure(false);
@@ -311,7 +320,7 @@ export function SettingsPage({ property, importCount, onSave, onSaveClosure, onD
               <td>{formatDate(closure.startDate)} → {formatDate(closure.endDate)}</td>
               <td>{closureRoomNights(closure)}</td>
               <td>{closure.reason || "—"}</td>
-              <td><div className="settings-closure-row-actions"><button className="secondary-button" onClick={() => editClosure(closure)}>Editar</button><button className="settings-delete-closure" onClick={() => void deleteClosure(closure)}>Remover</button></div></td>
+              <td><div className="settings-closure-row-actions"><button className="secondary-button" onClick={() => editClosure(closure)}>Editar</button><button className="secondary-button" onClick={() => duplicateClosure(closure)}>Duplicar</button><button className="settings-delete-closure" onClick={() => void deleteClosure(closure)}>Remover</button></div></td>
             </tr>;
           })}</tbody>
         </table>}
