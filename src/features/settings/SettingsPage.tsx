@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Property } from "../../domain/models";
+import { validateInventoryClosure } from "../../domain/inventory";
+import type { InventoryClosure, IsoDate, Property } from "../../domain/models";
 import {
   getInterfaceZoom,
   getThemePreference,
@@ -23,6 +24,8 @@ interface Props {
   property: Property;
   importCount: number;
   onSave: (property: Property) => Promise<void>;
+  onSaveClosure: (closure: InventoryClosure) => Promise<void>;
+  onDeleteClosure: (closureId: string) => Promise<void>;
 }
 
 function makePropertyId() {
@@ -33,19 +36,59 @@ function makeRoomId(propertyId: string) {
   return `${propertyId}-room-${crypto.randomUUID()}`;
 }
 
-export function SettingsPage({ property, importCount, onSave }: Props) {
+function today(): IsoDate {
+  return new Date().toISOString().slice(0, 10) as IsoDate;
+}
+
+function blankClosure(property: Property): InventoryClosure {
+  const roomType = property.roomTypes.find((room) => room.inventoryCount > 0 && room.activeTo === null) ?? property.roomTypes[0];
+  const date = today();
+  return {
+    id: crypto.randomUUID(),
+    propertyId: property.id,
+    roomTypeId: roomType?.id ?? "",
+    startDate: date,
+    endDate: date,
+    quantity: 1,
+    reason: "",
+  };
+}
+
+function formatDate(value: IsoDate) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-PT").format(new Date(year, month - 1, day));
+}
+
+function closureRoomNights(closure: InventoryClosure) {
+  const start = new Date(`${closure.startDate}T00:00:00`);
+  const end = new Date(`${closure.endDate}T00:00:00`);
+  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+  return Math.max(0, days) * closure.quantity;
+}
+
+export function SettingsPage({ property, importCount, onSave, onSaveClosure, onDeleteClosure }: Props) {
   const [draft, setDraft] = useState<PropertyDraft>(() => propertyToDraft(property));
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemePreference>(() => getThemePreference());
   const [interfaceZoom, setZoom] = useState(() => getInterfaceZoom());
+  const [closureDraft, setClosureDraft] = useState<InventoryClosure>(() => blankClosure(property));
+  const [editingClosure, setEditingClosure] = useState(false);
+  const [savingClosure, setSavingClosure] = useState(false);
+  const [closureError, setClosureError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isNew) return;
     setDraft(propertyToDraft(property));
     setSaveError(null);
   }, [property, isNew]);
+
+  useEffect(() => {
+    if (editingClosure) return;
+    setClosureDraft(blankClosure(property));
+    setClosureError(null);
+  }, [property, editingClosure]);
 
   useEffect(() => {
     const syncPreferences = () => {
@@ -59,6 +102,19 @@ export function SettingsPage({ property, importCount, onSave }: Props) {
   const issues = useMemo(() => validatePropertyDraft(draft), [draft]);
   const configured = configuredRoomCount(draft);
   const balanced = configured === draft.totalRooms;
+  const activeRoomTypes = useMemo(
+    () => property.roomTypes.filter((room) => room.inventoryCount > 0 && room.activeTo === null),
+    [property.roomTypes],
+  );
+  const closures = property.inventoryClosures ?? [];
+  const closureIssues = useMemo(
+    () => validateInventoryClosure(property, closureDraft, closures),
+    [property, closureDraft, closures],
+  );
+  const unavailableRoomNights = useMemo(
+    () => closures.reduce((sum, closure) => sum + closureRoomNights(closure), 0),
+    [closures],
+  );
 
   function startNew() {
     const propertyId = makePropertyId();
@@ -102,6 +158,44 @@ export function SettingsPage({ property, importCount, onSave }: Props) {
       setSaveError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setSaving(false);
+    }
+  }
+
+  function editClosure(closure: InventoryClosure) {
+    setClosureDraft({ ...closure });
+    setEditingClosure(true);
+    setClosureError(null);
+  }
+
+  function resetClosure() {
+    setClosureDraft(blankClosure(property));
+    setEditingClosure(false);
+    setClosureError(null);
+  }
+
+  async function saveClosure() {
+    if (closureIssues.length) return;
+    setSavingClosure(true);
+    setClosureError(null);
+    try {
+      await onSaveClosure({ ...closureDraft, reason: closureDraft.reason.trim() });
+      resetClosure();
+    } catch (cause) {
+      setClosureError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSavingClosure(false);
+    }
+  }
+
+  async function deleteClosure(closure: InventoryClosure) {
+    const room = property.roomTypes.find((item) => item.id === closure.roomTypeId)?.canonicalName ?? "quarto";
+    if (!window.confirm(`Remover a indisponibilidade de ${room} entre ${formatDate(closure.startDate)} e ${formatDate(closure.endDate)}?`)) return;
+    setClosureError(null);
+    try {
+      await onDeleteClosure(closure.id);
+      if (closureDraft.id === closure.id) resetClosure();
+    } catch (cause) {
+      setClosureError(cause instanceof Error ? cause.message : String(cause));
     }
   }
 
@@ -184,6 +278,46 @@ export function SettingsPage({ property, importCount, onSave }: Props) {
         </div>)}
       </div>
     </article>
+
+    {!isNew && <article className="panel settings-closures-panel">
+      <div className="panel-heading settings-closures-heading">
+        <div><p className="eyebrow">Inventário vendável</p><h2>Indisponibilidades de quartos</h2><p>Retire quartos do inventário disponível em períodos de manutenção, bloqueios operacionais ou outras indisponibilidades.</p></div>
+        <div className="settings-closure-summary"><strong>{unavailableRoomNights}</strong><span>noites-quarto indisponíveis registadas</span></div>
+      </div>
+
+      <div className="settings-closure-form">
+        <label className="settings-field"><span>Tipo de quarto</span><select value={closureDraft.roomTypeId} onChange={(event) => setClosureDraft({ ...closureDraft, roomTypeId: event.target.value })}>{activeRoomTypes.map((room) => <option key={room.id} value={room.id}>{room.canonicalName}</option>)}</select></label>
+        <label className="settings-field"><span>Quantidade indisponível</span><input type="number" min={1} step={1} value={closureDraft.quantity} onChange={(event) => setClosureDraft({ ...closureDraft, quantity: Number(event.target.value) })} /></label>
+        <label className="settings-field"><span>De</span><input type="date" value={closureDraft.startDate} onChange={(event) => setClosureDraft({ ...closureDraft, startDate: event.target.value as IsoDate })} /></label>
+        <label className="settings-field"><span>Até, inclusive</span><input type="date" value={closureDraft.endDate} onChange={(event) => setClosureDraft({ ...closureDraft, endDate: event.target.value as IsoDate })} /></label>
+        <label className="settings-field settings-closure-reason"><span>Motivo</span><input value={closureDraft.reason} onChange={(event) => setClosureDraft({ ...closureDraft, reason: event.target.value })} placeholder="Manutenção, bloqueio operacional…" /></label>
+        <div className="settings-closure-actions">
+          {editingClosure && <button className="secondary-button" onClick={resetClosure}>Cancelar edição</button>}
+          <button className="primary-button" disabled={savingClosure || closureIssues.length > 0 || activeRoomTypes.length === 0} onClick={() => void saveClosure()}>{savingClosure ? "A guardar…" : editingClosure ? "Guardar alteração" : "Adicionar indisponibilidade"}</button>
+        </div>
+      </div>
+
+      {closureError && <div className="settings-closure-error">{closureError}</div>}
+      {closureIssues.length > 0 && <div className="settings-closure-validation">{closureIssues[0]}</div>}
+
+      <div className="settings-closure-list">
+        {closures.length === 0 ? <div className="settings-closure-empty">Não existem indisponibilidades registadas. Todo o inventário configurado é considerado vendável.</div> : <table>
+          <thead><tr><th>Tipo de quarto</th><th>Quantidade</th><th>Período</th><th>Noites-quarto</th><th>Motivo</th><th /></tr></thead>
+          <tbody>{[...closures].sort((a, b) => b.startDate.localeCompare(a.startDate)).map((closure) => {
+            const room = property.roomTypes.find((item) => item.id === closure.roomTypeId);
+            return <tr key={closure.id}>
+              <td><strong>{room?.canonicalName ?? "Tipo de quarto removido"}</strong></td>
+              <td>{closure.quantity}</td>
+              <td>{formatDate(closure.startDate)} → {formatDate(closure.endDate)}</td>
+              <td>{closureRoomNights(closure)}</td>
+              <td>{closure.reason || "—"}</td>
+              <td><div className="settings-closure-row-actions"><button className="secondary-button" onClick={() => editClosure(closure)}>Editar</button><button className="settings-delete-closure" onClick={() => void deleteClosure(closure)}>Remover</button></div></td>
+            </tr>;
+          })}</tbody>
+        </table>}
+      </div>
+      <p className="settings-closure-note">Estas datas representam noites de inventário indisponível e são inclusivas. A ocupação e a receita por quarto disponível passam a usar apenas o inventário efetivamente vendável.</p>
+    </article>}
 
     {issues.length > 0 && <article className="settings-validation"><strong>Setup needs attention</strong><ul>{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></article>}
   </>;
