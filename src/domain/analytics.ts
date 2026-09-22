@@ -1,11 +1,13 @@
 import { addDays, differenceInCalendarDays, max, min } from "date-fns";
 import { enumerateDates, nightsBetween, parseIsoDate, shiftYear, toIsoDate } from "./dates";
 import type {
+  CoverageQuality,
   DashboardFilters,
   DashboardMetrics,
   DashboardResult,
   IsoDate,
   LeadTimeCurveResult,
+  LeadTimePaceComparisonResult,
   Property,
   Reservation,
   SnapshotComparisonResult,
@@ -50,6 +52,16 @@ function latestSnapshotAtOrBefore(
     if (orderedSnapshots[index].dataAsOf <= targetDate) return orderedSnapshots[index];
   }
   return null;
+}
+
+export function coverageQuality(
+  coverage: number,
+  reliableCoverageThreshold = 0.8,
+  partialCoverageThreshold = 0.5,
+): CoverageQuality {
+  if (coverage >= reliableCoverageThreshold) return "reliable";
+  if (coverage >= partialCoverageThreshold) return "partial";
+  return "insufficient";
 }
 
 export function calculateMetrics(
@@ -247,6 +259,55 @@ export function calculateLeadTimeCurve(
   });
 
   return { points, maxSnapshotLagDays };
+}
+
+export function calculateLeadTimePaceComparison(
+  property: Property,
+  snapshots: SnapshotReservationSet[],
+  filters: DashboardFilters,
+  targetDays: number[] = [180, 90, 60, 30, 14, 7, 3, 0],
+  maxSnapshotLagDays = 14,
+  reliableCoverageThreshold = 0.8,
+  partialCoverageThreshold = 0.5,
+): LeadTimePaceComparisonResult {
+  const current = calculateLeadTimeCurve(property, snapshots, filters, targetDays, maxSnapshotLagDays);
+  const previousYearFilters: DashboardFilters = {
+    ...filters,
+    startDate: shiftYear(filters.startDate, -1),
+    endDate: shiftYear(filters.endDate, -1),
+  };
+  const previousYear = calculateLeadTimeCurve(property, snapshots, previousYearFilters, targetDays, maxSnapshotLagDays);
+
+  const points = current.points.map((currentPoint, index) => {
+    const previousYearPoint = previousYear.points[index];
+    const currentQuality = coverageQuality(currentPoint.coverage, reliableCoverageThreshold, partialCoverageThreshold);
+    const previousYearQuality = coverageQuality(previousYearPoint.coverage, reliableCoverageThreshold, partialCoverageThreshold);
+    const occupancyPercentagePointChange =
+      currentQuality === "reliable" &&
+      previousYearQuality === "reliable" &&
+      currentPoint.occupancy !== null &&
+      previousYearPoint.occupancy !== null
+        ? (currentPoint.occupancy - previousYearPoint.occupancy) * 100
+        : null;
+
+    return {
+      daysBeforeArrival: currentPoint.daysBeforeArrival,
+      label: currentPoint.label,
+      current: currentPoint,
+      previousYear: previousYearPoint,
+      currentQuality,
+      previousYearQuality,
+      occupancyPercentagePointChange,
+    };
+  });
+
+  return {
+    points,
+    current,
+    previousYear,
+    reliableCoverageThreshold,
+    partialCoverageThreshold,
+  };
 }
 
 export function comparison(current: number | null, previous: number | null, rate = false) {
