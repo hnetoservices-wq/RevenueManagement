@@ -72,7 +72,11 @@ Primary key: `snapshot_id + reservation_id + room_type_name`.
 
 ## Current reservation state
 
-The `current_reservations` view selects the newest snapshot row for each `property_id + reservation_id`. This prevents repeat snapshots from double-counting a reservation while preserving its history.
+The Dashboard's current reservation set is the complete reservation set from the property's newest snapshot by `data_as_of`. If several snapshots have the same `data_as_of`, the most recently imported one is used as the tie-breaker.
+
+Older historical files may be imported later without replacing the current Dashboard because `imported_at` does not determine which booking position is current.
+
+A reservation that existed in an older snapshot but is absent from the newest snapshot is not carried forward into current metrics. Historical copies remain preserved in their original snapshots for pickup, pace, cancellation, and audit analysis.
 
 ## Deferred inventory model
 
