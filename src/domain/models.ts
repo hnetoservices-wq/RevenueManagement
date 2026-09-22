@@ -88,6 +88,7 @@ export interface DashboardFilters {
   startDate: IsoDate;
   endDate: IsoDate;
   revenueBasis: RevenueBasis;
+  reservationMetricStatus?: "active" | "cancelled";
 }
 
 export interface MetricValue {
@@ -179,7 +180,6 @@ export interface LeadTimeCurvePoint {
 
 export interface LeadTimeCurveResult {
   points: LeadTimeCurvePoint[];
-  maxSnapshotLagDays: number;
 }
 
 export interface LeadTimePaceComparisonPoint {
@@ -189,15 +189,13 @@ export interface LeadTimePaceComparisonPoint {
   previousYear: LeadTimeCurvePoint;
   currentQuality: CoverageQuality;
   previousYearQuality: CoverageQuality;
-  occupancyPercentagePointChange: number | null;
+  occupancyPercentagePoints: number | null;
 }
 
 export interface LeadTimePaceComparisonResult {
-  points: LeadTimePaceComparisonPoint[];
   current: LeadTimeCurveResult;
   previousYear: LeadTimeCurveResult;
-  reliableCoverageThreshold: number;
-  partialCoverageThreshold: number;
+  points: LeadTimePaceComparisonPoint[];
 }
 
 export type PickupChangeType = "new" | "cancelled" | "modified" | "removed";
