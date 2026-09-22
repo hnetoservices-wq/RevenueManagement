@@ -29,6 +29,9 @@
 - Dedicated Revenue dashboard with room and total revenue, ADR, RevPAR, extras, tourist tax, revenue-and-rate trend, revenue mix, channel contribution, monthly revenue, and top revenue dates.
 - Revenue comparison modes for previous year, immediately preceding equal-length period, or none, using the same historical-coverage safeguards as Performance and Occupancy.
 - Revenue regression coverage for revenue-mix reconciliation, exact channel contribution, top stay-date revenue, and incomplete prior-year history.
+- Booking Activity workspace under Revenue for booking-date production: bookings created, room nights and room revenue booked, booked ADR, LOS, lead time, booking-production trend, stay-month allocation, channel contribution, and exact room-type room-night mix.
+- Conservative booking-date coverage rules that treat dates outside the observed booking-date range as unknown rather than zero and suppress unreliable historical comparison deltas.
+- Booking Activity regression coverage for full-value attribution by booking date, cross-month stay allocation, channel/room-type reconciliation, incomplete prior-year history, and last-observed-date defaults.
 - Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, Performance-period, incomplete-history, and analysis-filter regression coverage.
 
 ### Fixed
