@@ -14,7 +14,13 @@ export class TauriRepository implements Repository {
   }
 
   async initialize(): Promise<void> {
-    await this.db();
+    const db = await this.db();
+
+    // WAL is persistent at database level. Set it before normal reads begin so
+    // the plugin's read pool can coexist with the native import writer without
+    // requiring us to close/reopen the pool around every import.
+    await db.execute("PRAGMA journal_mode = WAL");
+    await db.execute("PRAGMA synchronous = NORMAL");
   }
 
   async listProperties(): Promise<Property[]> {
@@ -108,12 +114,8 @@ export class TauriRepository implements Repository {
     };
 
     try {
-      // The SQL plugin keeps a connection pool open. Release it before handing
-      // the database to the native importer so SQLite has only one writer path
-      // during the atomic snapshot transaction. The next read lazily reloads it.
-      await db.close();
-      this.database = null;
-
+      // The database is already in WAL mode, so the plugin's idle/read pool can
+      // remain open while the native command performs one atomic write transaction.
       await invoke("save_import_snapshot", {
         payload: { summary, reservations: preview.reservations },
       });
