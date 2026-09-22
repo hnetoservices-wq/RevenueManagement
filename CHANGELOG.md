@@ -7,7 +7,13 @@
 - Historical snapshot reservation queries for both SQLite and browser preview repositories.
 - Snapshot-to-snapshot pickup calculations for room nights, occupancy, revenue, reservations, ADR, and RevPAR.
 - Snapshot comparison controls and pickup KPI cards on the Imports page.
+- Dedicated Pace & Pickup page with all-snapshot booking-position timeline and consecutive pickup table.
 - Automated pickup regression coverage.
+
+### Fixed
+
+- Dashboard current-state metrics now use the complete newest `data_as_of` snapshot instead of carrying forward the newest known version of each reservation from older snapshots.
+- Importing an older historical file after a newer file no longer changes the Dashboard's current booking position.
 
 ## 0.1.0 - 2026-09-21
 
