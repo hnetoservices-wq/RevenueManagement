@@ -1,0 +1,45 @@
+.occupancy-heading { align-items: flex-end; }
+.occupancy-header-controls { display: flex; align-items: flex-end; gap: 10px; }
+.occupancy-kpi-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.occupancy-main-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .75fr); gap: 16px; margin-bottom: 16px; }
+.occupancy-demand-chart { height: 360px; }
+.occupancy-weekday-chart { height: 360px; }
+.occupancy-room-type-panel { margin-bottom: 16px; padding: 0; overflow: hidden; }
+.occupancy-room-type-panel .panel-heading { padding: 20px 20px 8px; }
+.occupancy-room-table { overflow-x: auto; }
+.occupancy-room-table table { min-width: 760px; }
+.occupancy-demand-dates-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.occupancy-date-list { display: grid; }
+.occupancy-date-list > div { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 16px; padding: 11px 0; border-bottom: 1px solid #edf0f2; }
+.occupancy-date-list > div:last-child { border-bottom: 0; }
+.occupancy-date-list span { color: #58636d; font-size: 10px; }
+.occupancy-date-list strong { color: #24313b; font-size: 12px; }
+.occupancy-date-list small { color: #8c949b; font-size: 9px; min-width: 58px; text-align: right; }
+.occupancy-calendar-panel { margin-bottom: 16px; }
+.occupancy-calendar-panel .panel-heading { align-items: flex-start; gap: 20px; }
+.occupancy-calendar-grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 14px; }
+.occupancy-month { border: 1px solid #e7eaed; border-radius: 10px; padding: 12px; background: #fbfcfc; }
+.occupancy-month h3 { margin: 0 0 10px; color: #2b3741; font-size: 11px; }
+.occupancy-weekdays, .occupancy-month-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.occupancy-weekdays { margin-bottom: 4px; }
+.occupancy-weekdays span { color: #9aa0a6; font-size: 8px; font-weight: 800; text-align: center; }
+.occupancy-day { min-height: 39px; padding: 5px 3px; border: 1px solid transparent; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.occupancy-day b { font-size: 9px; font-weight: 800; line-height: 1; }
+.occupancy-day small { margin-top: 4px; font-size: 8px; line-height: 1; }
+.occupancy-day.empty { background: transparent; }
+.occupancy-calendar-legend { display: flex; gap: 6px; flex-wrap: wrap; }
+.occupancy-calendar-legend span { padding: 5px 7px; border-radius: 6px; font-size: 8px; font-weight: 800; }
+.occ-low { background: #f3f5f6; color: #7b858e; border-color: #e6eaed; }
+.occ-medium { background: #eef5f3; color: #4b746f; border-color: #dbe9e6; }
+.occ-high { background: #dbece8; color: #23645c; border-color: #c5dfda; }
+.occ-full { background: #1f6f68; color: #fff; border-color: #1f6f68; }
+.occ-none { background: #f8f9fa; color: #a3a9af; border-color: #eef0f2; }
+.occupancy-notice { margin-bottom: 12px; padding: 11px 13px; border: 1px solid #ead7b2; border-radius: 9px; background: #fff8ec; display: flex; gap: 12px; align-items: baseline; }
+.occupancy-notice strong { color: #94671f; font-size: 10px; }
+.occupancy-notice span { color: #7c6c54; font-size: 9px; line-height: 1.5; }
+
+@media (max-width: 1250px) {
+  .occupancy-kpi-grid { grid-template-columns: repeat(3, minmax(150px, 1fr)); }
+  .occupancy-main-grid { grid-template-columns: 1fr; }
+  .occupancy-calendar-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+}
