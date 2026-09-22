@@ -4,6 +4,7 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 
 ## Next
 
+- Import and validate historical unavailable-room periods from the 2024/2025 workbook calendars so historical occupancy denominators match the source workbook.
 - Make days-before-arrival points configurable after the fixed D-180 / D-90 / D-60 / D-30 / D-14 / D-7 / D-3 / D-0 model is validated with real data.
 
 ## Property and commercial configuration
@@ -20,12 +21,13 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 - Room dashboard with explicit estimated allocation labels for multi-room revenue.
 - Cancellations dashboard.
 - Lead-time and length-of-stay histograms.
+- Count preserved legacy room-move segments as one logical reservation in reservation-count and stay-length statistics while keeping their per-room occupancy exact.
 - Deterministic insight engine.
 - Budget and target input workflow.
 
 ## Historical data recovery
 
-- Map the pre-Amenitiz manual Excel reservation sheets into an importable legacy CSV structure so previous-year booking and stay history can be reconstructed without inventing missing fields such as tourist tax.
+- Historical 2024/2025 reservation history is normalized and supported through the dedicated legacy final-data import path. Remaining historical recovery work is limited to inventory closures and any future source corrections.
 
 ## Exports
 
