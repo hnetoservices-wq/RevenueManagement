@@ -74,6 +74,10 @@ export function SettingsPage({ property, importCount, onSave, onSaveClosure, onD
   const [theme, setTheme] = useState<ThemePreference>(() => getThemePreference());
   const [interfaceZoom, setZoom] = useState(() => getInterfaceZoom());
   const [closureDraft, setClosureDraft] = useState<InventoryClosure>(() => blankClosure(property));
+  const [selectedRoomTypeIds, setSelectedRoomTypeIds] = useState<string[]>(() => {
+    const roomTypeId = blankClosure(property).roomTypeId;
+    return roomTypeId ? [roomTypeId] : [];
+  });
   const [editingClosure, setEditingClosure] = useState(false);
   const [savingClosure, setSavingClosure] = useState(false);
   const [closureError, setClosureError] = useState<string | null>(null);
@@ -86,7 +90,9 @@ export function SettingsPage({ property, importCount, onSave, onSaveClosure, onD
 
   useEffect(() => {
     if (editingClosure) return;
-    setClosureDraft(blankClosure(property));
+    const next = blankClosure(property);
+    setClosureDraft(next);
+    setSelectedRoomTypeIds(next.roomTypeId ? [next.roomTypeId] : []);
     setClosureError(null);
   }, [property, editingClosure]);
 
@@ -107,14 +113,29 @@ export function SettingsPage({ property, importCount, onSave, onSaveClosure, onD
     [property.roomTypes],
   );
   const closures = property.inventoryClosures ?? [];
-  const closureIssues = useMemo(
-    () => validateInventoryClosure(property, closureDraft, closures),
-    [property, closureDraft, closures],
-  );
+  const closureIssues = useMemo(() => {
+    if (editingClosure) return validateInventoryClosure(property, closureDraft, closures);
+    if (selectedRoomTypeIds.length === 0) return ["Selecione pelo menos um tipo de quarto."];
+    return selectedRoomTypeIds.flatMap((roomTypeId) =>
+      validateInventoryClosure(property, { ...closureDraft, roomTypeId }, closures),
+    );
+  }, [property, closureDraft, closures, editingClosure, selectedRoomTypeIds]);
   const unavailableRoomNights = useMemo(
     () => closures.reduce((sum, closure) => sum + closureRoomNights(closure), 0),
     [closures],
   );
+  const selectedRoomTypes = useMemo(
+    () => activeRoomTypes.filter((room) => selectedRoomTypeIds.includes(room.id)),
+    [activeRoomTypes, selectedRoomTypeIds],
+  );
+  const allRoomTypesSelected = activeRoomTypes.length > 0 && selectedRoomTypeIds.length === activeRoomTypes.length;
+  const roomTypeSelectionLabel = selectedRoomTypes.length === 0
+    ? "Selecionar tipos de quarto"
+    : allRoomTypesSelected
+      ? "Todos os tipos de quarto"
+      : selectedRoomTypes.length === 1
+        ? selectedRoomTypes[0].canonicalName
+        : `${selectedRoomTypes.length} tipos de quarto selecionados`;
 
   function startNew() {
     const propertyId = makePropertyId();
@@ -163,23 +184,33 @@ export function SettingsPage({ property, importCount, onSave, onSaveClosure, onD
 
   function editClosure(closure: InventoryClosure) {
     setClosureDraft({ ...closure });
+    setSelectedRoomTypeIds([closure.roomTypeId]);
     setEditingClosure(true);
     setClosureError(null);
   }
 
-  function duplicateClosure(closure: InventoryClosure) {
-    setClosureDraft({ ...closure, id: crypto.randomUUID() });
+  function resetClosure() {
+    const next = blankClosure(property);
+    setClosureDraft(next);
+    setSelectedRoomTypeIds(next.roomTypeId ? [next.roomTypeId] : []);
     setEditingClosure(false);
     setClosureError(null);
-    window.setTimeout(() => {
-      document.querySelector(".settings-closure-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 0);
   }
 
-  function resetClosure() {
-    setClosureDraft(blankClosure(property));
-    setEditingClosure(false);
-    setClosureError(null);
+  function toggleRoomType(roomTypeId: string) {
+    setSelectedRoomTypeIds((current) => {
+      const next = current.includes(roomTypeId)
+        ? current.filter((id) => id !== roomTypeId)
+        : [...current, roomTypeId];
+      setClosureDraft((draftValue) => ({ ...draftValue, roomTypeId: next[0] ?? "" }));
+      return next;
+    });
+  }
+
+  function toggleAllRoomTypes() {
+    const next = allRoomTypesSelected ? [] : activeRoomTypes.map((room) => room.id);
+    setSelectedRoomTypeIds(next);
+    setClosureDraft((draftValue) => ({ ...draftValue, roomTypeId: next[0] ?? "" }));
   }
 
   async function saveClosure() {
@@ -187,7 +218,14 @@ export function SettingsPage({ property, importCount, onSave, onSaveClosure, onD
     setSavingClosure(true);
     setClosureError(null);
     try {
-      await onSaveClosure({ ...closureDraft, reason: closureDraft.reason.trim() });
+      const reason = closureDraft.reason.trim();
+      if (editingClosure) {
+        await onSaveClosure({ ...closureDraft, roomTypeId: selectedRoomTypeIds[0] ?? closureDraft.roomTypeId, reason });
+      } else {
+        for (const roomTypeId of selectedRoomTypeIds) {
+          await onSaveClosure({ ...closureDraft, id: crypto.randomUUID(), roomTypeId, reason });
+        }
+      }
       resetClosure();
     } catch (cause) {
       setClosureError(cause instanceof Error ? cause.message : String(cause));
@@ -295,14 +333,35 @@ export function SettingsPage({ property, importCount, onSave, onSaveClosure, onD
       </div>
 
       <div className="settings-closure-form">
-        <label className="settings-field"><span>Tipo de quarto</span><select value={closureDraft.roomTypeId} onChange={(event) => setClosureDraft({ ...closureDraft, roomTypeId: event.target.value })}>{activeRoomTypes.map((room) => <option key={room.id} value={room.id}>{room.canonicalName}</option>)}</select></label>
+        <div className="settings-field settings-room-type-field">
+          <span>Tipo de quarto</span>
+          {editingClosure ? (
+            <select value={closureDraft.roomTypeId} onChange={(event) => { setClosureDraft({ ...closureDraft, roomTypeId: event.target.value }); setSelectedRoomTypeIds([event.target.value]); }}>
+              {activeRoomTypes.map((room) => <option key={room.id} value={room.id}>{room.canonicalName}</option>)}
+            </select>
+          ) : (
+            <details className="settings-room-multiselect">
+              <summary>{roomTypeSelectionLabel}</summary>
+              <div className="settings-room-multiselect-menu">
+                <label className="settings-room-multiselect-option settings-room-multiselect-all">
+                  <input type="checkbox" checked={allRoomTypesSelected} onChange={toggleAllRoomTypes} />
+                  <span>Selecionar todos</span>
+                </label>
+                {activeRoomTypes.map((room) => <label className="settings-room-multiselect-option" key={room.id}>
+                  <input type="checkbox" checked={selectedRoomTypeIds.includes(room.id)} onChange={() => toggleRoomType(room.id)} />
+                  <span>{room.canonicalName}</span>
+                </label>)}
+              </div>
+            </details>
+          )}
+        </div>
         <label className="settings-field"><span>Quantidade indisponível</span><input type="number" min={1} step={1} value={closureDraft.quantity} onChange={(event) => setClosureDraft({ ...closureDraft, quantity: Number(event.target.value) })} /></label>
         <label className="settings-field"><span>De</span><input type="date" value={closureDraft.startDate} onChange={(event) => setClosureDraft({ ...closureDraft, startDate: event.target.value as IsoDate })} /></label>
         <label className="settings-field"><span>Até, inclusive</span><input type="date" value={closureDraft.endDate} onChange={(event) => setClosureDraft({ ...closureDraft, endDate: event.target.value as IsoDate })} /></label>
         <label className="settings-field settings-closure-reason"><span>Motivo</span><input value={closureDraft.reason} onChange={(event) => setClosureDraft({ ...closureDraft, reason: event.target.value })} placeholder="Manutenção, bloqueio operacional…" /></label>
         <div className="settings-closure-actions">
           {editingClosure && <button className="secondary-button" onClick={resetClosure}>Cancelar edição</button>}
-          <button className="primary-button" disabled={savingClosure || closureIssues.length > 0 || activeRoomTypes.length === 0} onClick={() => void saveClosure()}>{savingClosure ? "A guardar…" : editingClosure ? "Guardar alteração" : "Adicionar indisponibilidade"}</button>
+          <button className="primary-button" disabled={savingClosure || closureIssues.length > 0 || activeRoomTypes.length === 0} onClick={() => void saveClosure()}>{savingClosure ? "A guardar…" : editingClosure ? "Guardar alteração" : selectedRoomTypeIds.length > 1 ? "Adicionar indisponibilidades" : "Adicionar indisponibilidade"}</button>
         </div>
       </div>
 
@@ -320,7 +379,7 @@ export function SettingsPage({ property, importCount, onSave, onSaveClosure, onD
               <td>{formatDate(closure.startDate)} → {formatDate(closure.endDate)}</td>
               <td>{closureRoomNights(closure)}</td>
               <td>{closure.reason || "—"}</td>
-              <td><div className="settings-closure-row-actions"><button className="secondary-button" onClick={() => editClosure(closure)}>Editar</button><button className="secondary-button" onClick={() => duplicateClosure(closure)}>Duplicar</button><button className="settings-delete-closure" onClick={() => void deleteClosure(closure)}>Remover</button></div></td>
+              <td><div className="settings-closure-row-actions"><button className="secondary-button" onClick={() => editClosure(closure)}>Editar</button><button className="settings-delete-closure" onClick={() => void deleteClosure(closure)}>Remover</button></div></td>
             </tr>;
           })}</tbody>
         </table>}
