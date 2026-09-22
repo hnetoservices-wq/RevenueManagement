@@ -312,7 +312,7 @@ function App() {
                 </>
               )}
             </>
-          ) : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
+          ) : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
         </div>
       </main>
 
