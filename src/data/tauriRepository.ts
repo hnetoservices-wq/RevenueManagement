@@ -5,6 +5,30 @@ import { DuplicateImportError, type Repository } from "./repository";
 
 type SqlRow = Record<string, string | number | null>;
 
+function rowsToReservations(rows: SqlRow[]): Reservation[] {
+  const result = new Map<string, Reservation>();
+  for (const row of rows) {
+    const key = String(row.reservation_id);
+    if (!result.has(key)) {
+      result.set(key, {
+        propertyId: String(row.property_id), reservationId: key,
+        checkIn: String(row.check_in) as Reservation["checkIn"], checkOut: String(row.check_out) as Reservation["checkOut"],
+        bookedAt: row.booked_at ? String(row.booked_at) as Reservation["bookedAt"] : null,
+        source: String(row.source), sourceStatus: String(row.source_status), status: String(row.normalized_status) as Reservation["status"],
+        country: row.country ? String(row.country) : null, rooms: [], roomQuantity: Number(row.room_quantity),
+        touristTaxCents: Number(row.tourist_tax_cents), extraRevenueExclCents: Number(row.extra_revenue_excl_cents),
+        extraRevenueInclCents: Number(row.extra_revenue_incl_cents), roomRevenueExclCents: Number(row.room_revenue_excl_cents),
+        roomRevenueInclCents: Number(row.room_revenue_incl_cents), totalBookingValueCents: Number(row.total_booking_value_cents),
+        amountDueCents: Number(row.amount_due_cents),
+      });
+    }
+    if (row.room_type_name) {
+      result.get(key)!.rooms.push({ roomTypeName: String(row.room_type_name), quantity: Number(row.quantity) });
+    }
+  }
+  return Array.from(result.values());
+}
+
 export class TauriRepository implements Repository {
   private database: Database | null = null;
 
@@ -15,10 +39,6 @@ export class TauriRepository implements Repository {
 
   async initialize(): Promise<void> {
     const db = await this.db();
-
-    // WAL is persistent at database level. Set it before normal reads begin so
-    // the plugin's read pool can coexist with the native import writer without
-    // requiring us to close/reopen the pool around every import.
     await db.execute("PRAGMA journal_mode = WAL");
     await db.execute("PRAGMA synchronous = NORMAL");
   }
@@ -52,7 +72,7 @@ export class TauriRepository implements Repository {
     const rows = await db.select<SqlRow[]>(
       `SELECT id, property_id, source, original_filename, imported_at, data_as_of, file_hash,
               row_count, valid_row_count, warning_count, excluded_row_count
-       FROM import_snapshots WHERE property_id = $1 ORDER BY imported_at DESC`,
+       FROM import_snapshots WHERE property_id = $1 ORDER BY data_as_of DESC, imported_at DESC`,
       [propertyId],
     );
     return rows.map((row) => ({
@@ -75,27 +95,21 @@ export class TauriRepository implements Repository {
        ORDER BY r.reservation_id, rr.room_type_name`,
       [propertyId],
     );
-    const result = new Map<string, Reservation>();
-    for (const row of rows) {
-      const key = String(row.reservation_id);
-      if (!result.has(key)) {
-        result.set(key, {
-          propertyId: String(row.property_id), reservationId: key,
-          checkIn: String(row.check_in) as Reservation["checkIn"], checkOut: String(row.check_out) as Reservation["checkOut"],
-          bookedAt: row.booked_at ? String(row.booked_at) as Reservation["bookedAt"] : null,
-          source: String(row.source), sourceStatus: String(row.source_status), status: String(row.normalized_status) as Reservation["status"],
-          country: row.country ? String(row.country) : null, rooms: [], roomQuantity: Number(row.room_quantity),
-          touristTaxCents: Number(row.tourist_tax_cents), extraRevenueExclCents: Number(row.extra_revenue_excl_cents),
-          extraRevenueInclCents: Number(row.extra_revenue_incl_cents), roomRevenueExclCents: Number(row.room_revenue_excl_cents),
-          roomRevenueInclCents: Number(row.room_revenue_incl_cents), totalBookingValueCents: Number(row.total_booking_value_cents),
-          amountDueCents: Number(row.amount_due_cents),
-        });
-      }
-      if (row.room_type_name) {
-        result.get(key)!.rooms.push({ roomTypeName: String(row.room_type_name), quantity: Number(row.quantity) });
-      }
-    }
-    return Array.from(result.values());
+    return rowsToReservations(rows);
+  }
+
+  async listSnapshotReservations(propertyId: string, snapshotId: string): Promise<Reservation[]> {
+    const db = await this.db();
+    const rows = await db.select<SqlRow[]>(
+      `SELECT r.*, rr.room_type_name, rr.quantity
+       FROM reservation_snapshots r
+       LEFT JOIN reservation_room_snapshots rr
+         ON rr.snapshot_id = r.snapshot_id AND rr.reservation_id = r.reservation_id
+       WHERE r.property_id = $1 AND r.snapshot_id = $2
+       ORDER BY r.reservation_id, rr.room_type_name`,
+      [propertyId, snapshotId],
+    );
+    return rowsToReservations(rows);
   }
 
   async saveImport(preview: ImportPreview): Promise<ImportSnapshotSummary> {
@@ -114,8 +128,6 @@ export class TauriRepository implements Repository {
     };
 
     try {
-      // The database is already in WAL mode, so the plugin's idle/read pool can
-      // remain open while the native command performs one atomic write transaction.
       await invoke("save_import_snapshot", {
         payload: { summary, reservations: preview.reservations },
       });
