@@ -48,9 +48,49 @@
 .lead-diagnostic-table { border-top: 0; }
 .lead-time-empty { margin: 8px 20px 20px; padding: 30px; border: 1px dashed #d9dde1; border-radius: 10px; color: #858d95; background: #fafbfb; text-align: center; font-size: 11px; line-height: 1.6; }
 
+.pickup-decomposition-panel { margin-bottom: 16px; padding: 0; overflow: hidden; }
+.pickup-decomposition-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 20px; }
+.pickup-decomposition-heading h2 { margin: 0; font-size: 14px; }
+.pickup-decomposition-heading p:not(.eyebrow) { margin: 4px 0 0; color: #9299a1; font-size: 10px; line-height: 1.55; }
+.pickup-selectors { display: flex; align-items: end; gap: 9px; }
+.pickup-selectors label { color: #7a838c; font-size: 9px; font-weight: 700; }
+.pickup-selectors select { display: block; min-width: 132px; margin-top: 4px; padding: 8px 9px; border: 1px solid #dfe3e7; border-radius: 8px; background: #fff; color: #26343e; font-size: 10px; }
+.pickup-selectors > span { padding-bottom: 9px; color: #9aa1a8; }
+.pickup-period-line { padding: 0 20px 12px; color: #7f8790; font-size: 9px; }
+.pickup-category-grid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 10px; padding: 0 20px 14px; }
+.pickup-category-card { padding: 13px 14px; border: 1px solid #e5e8eb; border-radius: 9px; background: #fafbfb; }
+.pickup-category-card > span, .pickup-category-card > strong, .pickup-category-card > small { display: block; }
+.pickup-category-card > span { color: #747d86; font-size: 9px; font-weight: 700; }
+.pickup-category-card > strong { margin-top: 5px; color: #25343e; font-size: 20px; }
+.pickup-category-card > small { margin-top: 4px; color: #858d95; font-size: 9px; }
+.pickup-category-card.pickup-new { border-top: 2px solid #2f8068; }
+.pickup-category-card.pickup-cancelled { border-top: 2px solid #b85e55; }
+.pickup-category-card.pickup-modified { border-top: 2px solid #a17832; }
+.pickup-category-card.pickup-removed { border-top: 2px solid #7e8790; }
+.pickup-reconciliation { display: grid; grid-template-columns: auto auto auto 1fr; align-items: center; gap: 16px; margin: 0 20px 16px; padding: 12px 14px; border: 1px solid #dfe5e4; border-radius: 9px; background: #f6f9f8; font-size: 10px; }
+.pickup-reconciliation > span { color: #53616b; font-weight: 700; }
+.pickup-reconciliation > small { justify-self: end; color: #8a9299; font-size: 9px; }
+.pickup-reconciliation .positive, .pickup-entry-table td.positive { color: #298063; }
+.pickup-reconciliation .negative, .pickup-entry-table td.negative { color: #bc5a50; }
+.pickup-reconciliation .neutral, .pickup-entry-table td.neutral { color: #7d858c; }
+.pickup-entry-table { border-top: 1px solid #eceef1; }
+.pickup-entry-table table { min-width: 1060px; }
+.pickup-entry-table td.positive, .pickup-entry-table td.negative { font-weight: 700; }
+.pickup-change-badge { display: inline-block; padding: 3px 7px; border-radius: 999px; font-size: 8px; font-weight: 800; }
+.pickup-change-badge.pickup-new { background: #e9f4f0; color: #287a60; }
+.pickup-change-badge.pickup-cancelled { background: #f7ecea; color: #a94f47; }
+.pickup-change-badge.pickup-modified { background: #f6f0e5; color: #916d2f; }
+.pickup-change-badge.pickup-removed { background: #eef0f2; color: #66717a; }
+.pickup-order-warning, .pickup-loading { margin: 0 20px 20px; padding: 14px; border: 1px dashed #d9dde1; border-radius: 9px; color: #7f8790; background: #fafbfb; font-size: 10px; text-align: center; }
+.pickup-no-changes { padding: 24px !important; color: #8a9299; text-align: center; }
+
 @media (max-width: 1250px) {
   .pace-summary-grid { grid-template-columns: repeat(2, minmax(170px, 1fr)); }
   .pace-grid { grid-template-columns: 1fr; }
   .lead-time-heading { align-items: stretch; }
   .lead-quality-summary { min-width: 220px; }
+  .pickup-decomposition-heading { flex-direction: column; }
+  .pickup-category-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+  .pickup-reconciliation { grid-template-columns: 1fr 1fr; }
+  .pickup-reconciliation > small { justify-self: start; }
 }
