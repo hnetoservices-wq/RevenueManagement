@@ -6,6 +6,7 @@ import {
   ALL_ROOM_TYPES,
   applyAnalysisFilters,
 } from "../src/features/filters/analysisFilters";
+import { calculateReservationDescriptiveMetrics } from "../src/features/filters/descriptiveMetrics";
 
 const reservation: Reservation = {
   propertyId: "malmerendas",
@@ -84,5 +85,26 @@ describe("analysis filters", () => {
     expect(result.reservations[0].touristTaxCents).toBe(1200);
     expect(result.roomTypeRevenueEstimated).toBe(true);
     expect(result.estimatedReservationCount).toBe(1);
+  });
+
+  it("keeps cancelled bookings descriptive without turning them into sold performance", () => {
+    const cancelled: Reservation = {
+      ...reservation,
+      reservationId: "FILTER-CANCELLED",
+      status: "cancelled",
+      sourceStatus: "cancelled",
+      checkIn: "2026-10-10",
+      checkOut: "2026-10-13",
+      bookedAt: "2026-09-10",
+    };
+    const descriptive = calculateReservationDescriptiveMetrics([cancelled], {
+      startDate: "2026-10-01",
+      endDate: "2026-10-31",
+      revenueBasis: "inclusive",
+    });
+
+    expect(descriptive.reservations).toBe(1);
+    expect(descriptive.averageLengthOfStay).toBe(3);
+    expect(descriptive.averageLeadTime).toBe(30);
   });
 });
