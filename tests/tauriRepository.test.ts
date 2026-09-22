@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   load: vi.fn(),
   select: vi.fn(),
-  close: vi.fn(),
+  execute: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
@@ -54,19 +54,26 @@ describe("Tauri snapshot repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.select.mockResolvedValue([]);
-    mocks.close.mockResolvedValue(true);
-    mocks.load.mockResolvedValue({ select: mocks.select, close: mocks.close });
+    mocks.execute.mockResolvedValue({ rowsAffected: 0 });
+    mocks.load.mockResolvedValue({ select: mocks.select, execute: mocks.execute });
     mocks.invoke.mockResolvedValue(undefined);
   });
 
-  it("releases the SQL pool before delegating the complete import to one native transaction", async () => {
+  it("initializes SQLite in WAL mode", async () => {
+    const repository = new TauriRepository();
+
+    await repository.initialize();
+
+    expect(mocks.execute).toHaveBeenNthCalledWith(1, "PRAGMA journal_mode = WAL");
+    expect(mocks.execute).toHaveBeenNthCalledWith(2, "PRAGMA synchronous = NORMAL");
+  });
+
+  it("delegates the complete import to one native transaction without closing the SQL pool", async () => {
     const repository = new TauriRepository();
 
     const summary = await repository.saveImport(preview);
 
-    expect(mocks.close).toHaveBeenCalledOnce();
     expect(mocks.invoke).toHaveBeenCalledOnce();
-    expect(mocks.close.mock.invocationCallOrder[0]).toBeLessThan(mocks.invoke.mock.invocationCallOrder[0]);
     expect(mocks.invoke).toHaveBeenCalledWith("save_import_snapshot", {
       payload: {
         summary: expect.objectContaining({
