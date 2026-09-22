@@ -41,11 +41,13 @@ import { OccupancyPage } from "./features/occupancy/OccupancyPage";
 import { PacePickupPage } from "./features/pace/PacePickupPage";
 import { PerformancePage } from "./features/performance/PerformancePage";
 import { RevenuePage } from "./features/revenue/RevenuePage";
+import { SettingsPage } from "./features/settings/SettingsPage";
+import { ReportSummaryPage } from "./features/summary/ReportSummaryPage";
 
 const repository = createRepository();
 const COLORS = ["#1f6f68", "#d19a4a", "#4d6b94", "#845d80", "#79905d", "#ba6c57"];
 
-type Page = "dashboard" | "performance" | "occupancy" | "revenue" | "pace" | "imports";
+type Page = "dashboard" | "summary" | "performance" | "occupancy" | "revenue" | "pace" | "imports" | "settings";
 
 interface ChartPoint {
   label: string;
@@ -242,6 +244,16 @@ function App() {
     try { await refresh(nextId); } finally { setLoading(false); }
   }
 
+  async function savePropertySetup(nextProperty: Property) {
+    await repository.saveProperty(nextProperty);
+    const nextProperties = await repository.listProperties();
+    setProperties(nextProperties);
+    setPropertyId(nextProperty.id);
+    setAnalysisFilters(DEFAULT_ANALYSIS_FILTERS);
+    await refresh(nextProperty.id);
+    setToast(`${nextProperty.name} setup saved.`);
+  }
+
   if (loading || !property || !analyticalProperty || !dashboard) {
     return <div className="loading-screen"><div className="spinner" /><p>Opening your local revenue workspace…</p></div>;
   }
@@ -266,13 +278,14 @@ function App() {
         <div className="brand"><span className="brand-mark">RM</span><div><strong>Revenue</strong><small>Local analytics</small></div></div>
         <nav>
           <NavButton active={page === "dashboard"} onClick={() => setPage("dashboard")} icon="grid" label="Dashboard" />
+          <NavButton active={page === "summary"} onClick={() => setPage("summary")} icon="trend" label="Report Summary" />
           <NavButton active={page === "performance"} onClick={() => setPage("performance")} icon="trend" label="Performance" />
           <NavButton active={page === "occupancy"} onClick={() => setPage("occupancy")} icon="bed" label="Occupancy" />
           <NavButton active={page === "revenue"} onClick={() => setPage("revenue")} icon="coin" label="Revenue" />
           <NavButton active={page === "pace"} onClick={() => setPage("pace")} icon="pace" label="Pace & Pickup" />
           <div className="nav-divider" />
           <NavButton active={page === "imports"} onClick={() => setPage("imports")} icon="upload" label="Imports" />
-          <NavButton icon="settings" label="Settings" disabled />
+          <NavButton active={page === "settings"} onClick={() => setPage("settings")} icon="settings" label="Settings" />
         </nav>
         <div className="privacy-note"><span className="status-dot" /><div><strong>Local & private</strong><small>No data leaves this computer</small></div></div>
       </aside>
@@ -290,7 +303,7 @@ function App() {
 
         <div className="workspace">
           {error && <div className="alert"><span>{error}</span><button onClick={() => setError(null)}>Dismiss</button></div>}
-          {page !== "imports" && <AnalysisFilterBar property={property} reservations={reservations} filters={analysisFilters} setFilters={setAnalysisFilters} roomTypeRevenueEstimated={filteredAnalysis?.roomTypeRevenueEstimated ?? false} estimatedReservationCount={filteredAnalysis?.estimatedReservationCount ?? 0} />}
+          {page !== "imports" && page !== "settings" && <AnalysisFilterBar property={property} reservations={reservations} filters={analysisFilters} setFilters={setAnalysisFilters} roomTypeRevenueEstimated={filteredAnalysis?.roomTypeRevenueEstimated ?? false} estimatedReservationCount={filteredAnalysis?.estimatedReservationCount ?? 0} />}
           {page === "dashboard" ? (
             <>
               <div className="page-heading"><div><p className="eyebrow">Revenue overview</p><h1>Dashboard</h1><p>Stay-date performance and previous-year comparison.</p></div><DateFilters filters={filters} setFilters={setFilters} /></div>
@@ -314,7 +327,7 @@ function App() {
                 </>
               )}
             </>
-          ) : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "occupancy" ? <OccupancyPage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "revenue" ? <RevenuePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
+          ) : page === "summary" ? <ReportSummaryPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "occupancy" ? <OccupancyPage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "revenue" ? <RevenuePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "settings" ? <SettingsPage property={property} importCount={imports.length} onSave={savePropertySetup} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
         </div>
       </main>
 
