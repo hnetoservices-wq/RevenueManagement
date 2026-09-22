@@ -34,7 +34,7 @@
 .settings-history-warning { display: flex; gap: 12px; align-items: baseline; }
 .settings-history-warning strong { flex: 0 0 auto; margin: 0; }
 
-.settings-closures-panel { margin-top: 16px; padding: 0; overflow: hidden; }
+.settings-closures-panel { margin-top: 16px; padding: 0; overflow: visible; }
 .settings-closures-heading { padding: 20px 20px 10px; align-items: flex-start; }
 .settings-closures-heading h2 { margin-top: 0; }
 .settings-closure-summary { min-width: 170px; padding: 10px 12px; border: 1px solid #dce5e2; border-radius: 9px; background: #f4f9f7; text-align: right; }
@@ -45,6 +45,20 @@
 .settings-closure-reason { min-width: 180px; }
 .settings-closure-actions { display: flex; gap: 8px; align-items: center; }
 .settings-closure-actions .primary-button, .settings-closure-actions .secondary-button { white-space: nowrap; }
+.settings-room-type-field { min-width: 0; }
+.settings-room-multiselect { position: relative; }
+.settings-room-multiselect summary { min-height: 40px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid #dce1e5; border-radius: 8px; padding: 0 34px 0 12px; background: #fff; color: #1d2a33; cursor: pointer; list-style: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; }
+.settings-room-multiselect summary::-webkit-details-marker { display: none; }
+.settings-room-multiselect summary::after { content: "⌄"; position: absolute; right: 12px; top: 50%; transform: translateY(-55%); font-size: 15px; color: #65717b; }
+.settings-room-multiselect[open] summary { border-color: #6c9d97; outline: 2px solid rgba(31, 111, 104, .13); }
+.settings-room-multiselect[open] summary::after { transform: translateY(-35%) rotate(180deg); }
+.settings-room-multiselect-menu { position: absolute; z-index: 30; top: calc(100% + 5px); left: 0; min-width: 100%; width: max-content; max-width: 330px; padding: 6px; border: 1px solid #d8dee2; border-radius: 9px; background: #fff; box-shadow: 0 12px 28px rgba(29, 42, 51, .16); }
+.settings-room-multiselect-option { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+.settings-room-multiselect-option:hover { background: #f3f7f6; }
+.settings-room-multiselect-option + .settings-room-multiselect-option { margin-top: 2px; }
+.settings-room-multiselect-option.settings-room-multiselect-all { padding-bottom: 8px; margin-bottom: 5px; border-bottom: 1px solid #e7ebed; border-radius: 6px 6px 0 0; }
+.settings-field .settings-room-multiselect-option input { width: 15px; height: 15px; min-height: 0; margin: 0; padding: 0; accent-color: #1f6f68; }
+.settings-field .settings-room-multiselect-option span { color: #27353e; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; white-space: nowrap; }
 .settings-closure-validation, .settings-closure-error { margin: 0 20px 14px; padding: 10px 12px; border-radius: 8px; font-size: 10px; }
 .settings-closure-validation { border: 1px solid #ead4a8; background: #fff8ec; color: #7a5a22; }
 .settings-closure-error { border: 1px solid #efcbc7; background: #fff3f2; color: #9f463e; }
@@ -58,6 +72,14 @@
 .settings-delete-closure:hover { background: #fff6f5; }
 .settings-closure-empty { padding: 28px 20px; color: #828b93; text-align: center; font-size: 11px; }
 .settings-closure-note { margin: 0; padding: 12px 20px 18px; border-top: 1px solid #eceff1; color: #7a848c; font-size: 10px; line-height: 1.5; }
+
+html[data-theme="dark"] .settings-room-multiselect summary,
+html[data-theme="dark"] .settings-room-multiselect-menu { background: #10191e; color: #e4ecea; border-color: #34434a; }
+html[data-theme="dark"] .settings-room-multiselect-menu { box-shadow: 0 12px 28px rgba(0, 0, 0, .38); }
+html[data-theme="dark"] .settings-room-multiselect-option:hover { background: #1c2a30; }
+html[data-theme="dark"] .settings-room-multiselect-option.settings-room-multiselect-all { border-color: #2d3d44; }
+html[data-theme="dark"] .settings-field .settings-room-multiselect-option span { color: #dce6e4; }
+html[data-theme="dark"] .settings-room-multiselect summary::after { color: #a8b7b4; }
 
 @media (max-width: 1350px) {
   .settings-closure-form { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
@@ -77,4 +99,5 @@
   .settings-closure-reason, .settings-closure-actions { grid-column: auto; }
   .settings-closure-actions { justify-content: stretch; }
   .settings-closure-actions button { flex: 1; }
+  .settings-room-multiselect-menu { width: 100%; max-width: none; }
 }
