@@ -27,7 +27,19 @@ Amenitiz supplies revenue at reservation level, not nightly rate detail. When a 
 
 ## Multi-room limitation
 
-The property-level revenue total is reliable. Exact revenue and ADR by room type are not shown for multi-room reservations because the export does not identify the rate for each room. Occupancy by room type remains calculable from quantities.
+The property-level revenue total is reliable. Exact revenue and ADR by room type are not directly available for mixed multi-room reservations because the export does not identify the rate for each room. Occupancy by room type remains calculable from quantities.
+
+## Shared analytical filters
+
+Dashboard, Performance, and Pace & Pickup share the same Channel, Room Type, and Status filters. Imports remain raw and immutable.
+
+- **Channel:** filters reservations by normalized source. Revenue, room nights, and reservation counts remain exact for the selected source.
+- **Status:** filters the reservation set before metrics are calculated. Occupancy, ADR, RevPAR, room revenue, and room nights still follow the core rule that only active reservations contribute sold inventory and revenue. A cancelled-only filter therefore produces cancellation-focused context rather than sold-room performance.
+- **Room Type:** filters room allocations to the selected canonical room type and narrows the property inventory denominator to that room type. Room-night and occupancy calculations therefore remain exact for the selected room type.
+
+For a reservation containing multiple different room types, Amenitiz does not identify the revenue belonging to each individual room. When a Room Type filter includes only part of such a mixed reservation, room revenue, extras, tourist tax, total booking value, and amount due are allocated proportionally by selected room quantity. These values are explicitly labelled as **estimated room-type revenue** in the interface. The application does not present this proportional allocation as exact room-level pricing.
+
+Performance historical-data coverage is always inferred from the raw property dataset, not from the filtered subset. This prevents a channel or room-type filter from incorrectly turning genuine zero-demand dates into “unavailable history.”
 
 ## Historical snapshots and pickup
 
