@@ -20,7 +20,10 @@
 - Automatic daily, weekly, and monthly Performance trend granularity based on the selected stay-date range.
 - Monthly Performance table with occupancy, ADR, RevPAR, room nights, room revenue, and comparison deltas.
 - Performance data-coverage indicators and monthly comparison-coverage diagnostics.
-- Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, Performance-period, and incomplete-history regression coverage.
+- Shared Channel, Room Type, and Status analysis filters across Dashboard, Performance, and Pace & Pickup.
+- Room-type inventory projection so filtered occupancy uses the selected room type's actual available-room denominator.
+- Explicit estimated-revenue notice for mixed multi-room reservations when a room-type filter requires proportional allocation.
+- Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, Performance-period, incomplete-history, and analysis-filter regression coverage.
 
 ### Fixed
 
