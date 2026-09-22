@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { BrowserRepository } from "../src/data/browserRepository";
 import { DuplicateImportError } from "../src/data/repository";
-import type { ImportPreview, Reservation } from "../src/domain/models";
+import type { ImportPreview, IsoDate, Reservation } from "../src/domain/models";
 
 class MemoryStorage implements Storage {
   private data = new Map<string, string>();
@@ -21,11 +21,15 @@ const reservation: Reservation = {
   roomRevenueInclCents: 21200, totalBookingValueCents: 22400, amountDueCents: 0,
 };
 
-function preview(hash: string, value = 21200): ImportPreview {
+function preview(
+  hash: string,
+  options: { dataAsOf?: IsoDate; reservations?: Reservation[]; value?: number } = {},
+): ImportPreview {
+  const reservations = options.reservations ?? [{ ...reservation, roomRevenueInclCents: options.value ?? 21200 }];
   return {
-    propertyId: "malmerendas", source: "Amenitiz", filename: `${hash}.xlsx`, dataAsOf: "2026-05-15",
-    fileHash: hash, rowCount: 1, validRowCount: 1, excludedRowCount: 0, warningCount: 0, issues: [],
-    reservations: [{ ...reservation, roomRevenueInclCents: value }],
+    propertyId: "malmerendas", source: "Amenitiz", filename: `${hash}.xlsx`, dataAsOf: options.dataAsOf ?? "2026-05-15",
+    fileHash: hash, rowCount: reservations.length, validRowCount: reservations.length, excludedRowCount: 0, warningCount: 0, issues: [],
+    reservations,
   };
 }
 
@@ -41,14 +45,27 @@ describe("snapshot repository", () => {
     await expect(repository.saveImport(preview("same-hash"))).rejects.toBeInstanceOf(DuplicateImportError);
   });
 
-  it("keeps history while returning only the latest reservation state", async () => {
+  it("uses the newest data-as-of snapshot as the current reservation set", async () => {
     const repository = new BrowserRepository();
     await repository.initialize();
-    await repository.saveImport(preview("first", 21200));
-    await repository.saveImport(preview("second", 25000));
+
+    const obsolete: Reservation = { ...reservation, reservationId: "R-OLD", roomRevenueInclCents: 30000 };
+    await repository.saveImport(preview("newer", {
+      dataAsOf: "2026-09-15",
+      reservations: [{ ...reservation, roomRevenueInclCents: 25000 }],
+    }));
+
+    // Importing an older historical file later must not replace the current dashboard state.
+    await repository.saveImport(preview("older-imported-later", {
+      dataAsOf: "2026-08-01",
+      reservations: [{ ...reservation, roomRevenueInclCents: 21200 }, obsolete],
+    }));
+
     expect(await repository.listImports("malmerendas")).toHaveLength(2);
     const current = await repository.listCurrentReservations("malmerendas");
     expect(current).toHaveLength(1);
+    expect(current[0].reservationId).toBe("R-100");
     expect(current[0].roomRevenueInclCents).toBe(25000);
+    expect(current.some((item) => item.reservationId === "R-OLD")).toBe(false);
   });
 });
