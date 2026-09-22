@@ -23,6 +23,7 @@ import type {
   DashboardFilters,
   ImportPreview,
   ImportSnapshotSummary,
+  InventoryClosure,
   IsoDate,
   Property,
   Reservation,
@@ -150,12 +151,17 @@ function App() {
     setImports(nextImports);
   }, []);
 
+  const refreshProperties = useCallback(async () => {
+    const nextProperties = await repository.listProperties();
+    setProperties(nextProperties);
+    return nextProperties;
+  }, []);
+
   useEffect(() => {
     void (async () => {
       try {
         await repository.initialize();
-        const nextProperties = await repository.listProperties();
-        setProperties(nextProperties);
+        const nextProperties = await refreshProperties();
         if (nextProperties.length) {
           setPropertyId(nextProperties[0].id);
           await refresh(nextProperties[0].id);
@@ -166,7 +172,7 @@ function App() {
         setLoading(false);
       }
     })();
-  }, [refresh]);
+  }, [refresh, refreshProperties]);
 
   useEffect(() => {
     if (!toast) return;
@@ -246,12 +252,24 @@ function App() {
 
   async function savePropertySetup(nextProperty: Property) {
     await repository.saveProperty(nextProperty);
-    const nextProperties = await repository.listProperties();
-    setProperties(nextProperties);
+    await refreshProperties();
     setPropertyId(nextProperty.id);
     setAnalysisFilters(DEFAULT_ANALYSIS_FILTERS);
     await refresh(nextProperty.id);
     setToast(`${nextProperty.name} setup saved.`);
+  }
+
+  async function saveInventoryClosure(closure: InventoryClosure) {
+    await repository.saveInventoryClosure(closure);
+    await refreshProperties();
+    setToast("Indisponibilidade de inventário guardada.");
+  }
+
+  async function deleteInventoryClosure(closureId: string) {
+    if (!property) return;
+    await repository.deleteInventoryClosure(property.id, closureId);
+    await refreshProperties();
+    setToast("Indisponibilidade de inventário removida.");
   }
 
   if (loading || !property || !analyticalProperty || !dashboard) {
@@ -266,7 +284,7 @@ function App() {
     { label: "RevPAR", value: money(current.revparCents, analyticalProperty.currency), delta: deltaText(current.revparCents, previous.revparCents) },
     { label: "Room revenue", value: money(current.roomRevenueCents, analyticalProperty.currency), delta: deltaText(current.roomRevenueCents, previous.roomRevenueCents) },
     { label: "Room nights sold", value: number(current.roomNightsSold), delta: deltaText(current.roomNightsSold, previous.roomNightsSold) },
-    { label: "Available room nights", value: number(current.availableRoomNights), delta: { text: "Configured inventory", tone: "neutral" } },
+    { label: "Available room nights", value: number(current.availableRoomNights), delta: { text: current.unavailableRoomNights ? `${number(current.unavailableRoomNights)} room nights unavailable` : "No inventory closures", tone: "neutral" } },
     { label: "Reservations", value: number(current.reservations), delta: deltaText(current.reservations, previous.reservations) },
     { label: "Average lead time", value: `${number(current.averageLeadTime, 1)} days`, delta: deltaText(current.averageLeadTime, previous.averageLeadTime) },
     { label: "Average LOS", value: `${number(current.averageLengthOfStay, 1)} nights`, delta: deltaText(current.averageLengthOfStay, previous.averageLengthOfStay) },
@@ -327,7 +345,7 @@ function App() {
                 </>
               )}
             </>
-          ) : page === "summary" ? <ReportSummaryPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "occupancy" ? <OccupancyPage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "revenue" ? <RevenuePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "settings" ? <SettingsPage property={property} importCount={imports.length} onSave={savePropertySetup} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
+          ) : page === "summary" ? <ReportSummaryPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "occupancy" ? <OccupancyPage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "revenue" ? <RevenuePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "settings" ? <SettingsPage property={property} importCount={imports.length} onSave={savePropertySetup} onSaveClosure={saveInventoryClosure} onDeleteClosure={deleteInventoryClosure} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
         </div>
       </main>
 
