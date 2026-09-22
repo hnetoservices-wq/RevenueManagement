@@ -1,0 +1,18 @@
+.analysis-filter-bar { margin: -8px 0 18px; padding: 10px 12px; display: flex; align-items: flex-end; gap: 9px; border: 1px solid #e1e5e8; border-radius: 11px; background: #fff; box-shadow: 0 2px 7px rgba(23,34,44,.03); }
+.analysis-filter-title { min-width: 145px; align-self: center; }
+.analysis-filter-title span, .analysis-filter-title small { display: block; }
+.analysis-filter-title span { color: #33424c; font-size: 10px; font-weight: 800; }
+.analysis-filter-title small { margin-top: 2px; color: #969da4; font-size: 8px; }
+.analysis-filter-bar label { min-width: 150px; color: #9298a0; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.analysis-filter-bar select { display: block; width: 100%; min-height: 31px; margin-top: 3px; padding: 0 28px 0 9px; border: 0; border-radius: 6px; background: #f5f6f7; color: #34404b; font-size: 10px; font-weight: 700; outline: none; }
+.analysis-filter-reset { min-height: 31px; padding: 0 11px; border: 1px solid #dce1e4; border-radius: 7px; background: #fff; color: #59656f; font-size: 9px; font-weight: 800; }
+.analysis-filter-reset:hover { background: #f6f8f8; }
+.analysis-estimate-note { margin-left: auto; max-width: 365px; padding: 8px 10px; border: 1px solid #ead9b9; border-radius: 8px; background: #fff9ee; }
+.analysis-estimate-note strong, .analysis-estimate-note span { display: block; }
+.analysis-estimate-note strong { color: #8b6224; font-size: 9px; }
+.analysis-estimate-note span { margin-top: 2px; color: #8d7854; font-size: 8px; line-height: 1.45; }
+
+@media (max-width: 1300px) {
+  .analysis-filter-bar { flex-wrap: wrap; }
+  .analysis-estimate-note { width: 100%; max-width: none; margin-left: 0; }
+}
