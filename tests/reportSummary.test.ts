@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MALMERENDAS_PROPERTY } from "../src/domain/property";
 import type { Reservation } from "../src/domain/models";
-import { calculateReportSummary } from "../src/features/summary/reportSummary";
+import { calculateReportSummary, occupancyRelativeChange } from "../src/features/summary/reportSummary";
 
 function reservation(id: string, checkIn: Reservation["checkIn"], checkOut: Reservation["checkOut"], revenue: number, source = "Booking.com"): Reservation {
   return {
@@ -27,7 +27,7 @@ function reservation(id: string, checkIn: Reservation["checkIn"], checkOut: Rese
 }
 
 describe("report summary", () => {
-  it("compares each stay month between a baseline snapshot and the latest report", () => {
+  it("compares each stay month between a baseline snapshot and the selected later report", () => {
     const baseline = [
       reservation("JAN", "2026-01-05", "2026-01-06", 10000),
       reservation("SEP", "2026-09-05", "2026-09-06", 12000),
@@ -49,9 +49,14 @@ describe("report summary", () => {
     expect(january.observation).toBe("Closed");
     expect(january.roomRevenueDeltaCents).toBe(0);
     expect(september.roomRevenueDeltaCents).toBe(30000);
-    expect(september.occupancyDeltaPoints).toBeGreaterThan(0);
+    expect(september.occupancyDeltaPercent).toBeCloseTo(200);
     expect(result.pickup.roomNightsSold).toBe(2);
     expect(result.pickup.roomRevenueCents).toBe(30000);
+  });
+
+  it("uses relative percent change rather than percentage points for occupancy", () => {
+    expect(occupancyRelativeChange(0.65, 0.60)).toBeCloseTo(8.333333);
+    expect(occupancyRelativeChange(0.20, 0)).toBeNull();
   });
 
   it("reconciles channel current revenue and pickup decomposition to the headline change", () => {
