@@ -1,7 +1,7 @@
 import { addDays, format, isValid, parseISO } from "date-fns";
 import Papa from "papaparse";
 import type { ImportIssue, ImportPreview, IsoDate, NormalizedStatus, Property, Reservation, RoomAllocation } from "../../domain/models";
-import { sha256 } from "./amenitiz";
+import { sha256 } from "./amenitizCore";
 
 const REQUIRED_HEADERS = [
   "legacy_id",
