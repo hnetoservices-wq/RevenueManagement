@@ -15,7 +15,11 @@
 - Coverage-gated STLY occupancy percentage-point deltas that require reliable coverage in both periods.
 - Pickup decomposition into new bookings, cancellations, modifications, and reservations removed from a later report.
 - Reservation-level pickup drilldown with changed fields, before/after stay dates, room-night delta, and room-revenue delta.
-- Automated pickup, decomposition, lead-time reconstruction, coverage-quality, and STLY pace regression coverage.
+- Dedicated Performance dashboard with occupancy, ADR, RevPAR, revenue, room-night, reservation, LOS, and lead-time KPIs.
+- Performance comparison modes for previous year, immediately preceding equal-length period, or no comparison.
+- Automatic daily, weekly, and monthly Performance trend granularity based on the selected stay-date range.
+- Monthly Performance table with occupancy, ADR, RevPAR, room nights, room revenue, and comparison deltas.
+- Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, and Performance-period regression coverage.
 
 ### Fixed
 
