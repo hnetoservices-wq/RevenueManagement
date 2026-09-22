@@ -10,8 +10,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { calculateMetrics } from "../../domain/analytics";
-import type { DashboardFilters, ImportSnapshotSummary, IsoDate, Property, Reservation } from "../../domain/models";
+import { calculateLeadTimeCurve, calculateMetrics } from "../../domain/analytics";
+import type {
+  DashboardFilters,
+  ImportSnapshotSummary,
+  IsoDate,
+  LeadTimeCurvePoint,
+  Property,
+  Reservation,
+  SnapshotReservationSet,
+} from "../../domain/models";
 import "./pace.css";
 
 interface PacePoint {
@@ -55,6 +63,10 @@ function signedNumber(value: number | null, digits = 0) {
   return value > 0 ? `+${formatted}` : value < 0 ? `−${formatted}` : formatted;
 }
 
+function percentage(value: number | null) {
+  return value === null ? "—" : new Intl.NumberFormat("en-GB", { style: "percent", maximumFractionDigits: 1 }).format(value);
+}
+
 function tone(value: number | null) {
   return value === null || value === 0 ? "neutral" : value > 0 ? "positive" : "negative";
 }
@@ -65,6 +77,8 @@ function DateFilters({ filters, setFilters }: { filters: DashboardFilters; setFi
 
 export function PacePickupPage({ imports, property, filters, setFilters, loadSnapshotReservations }: Props) {
   const [points, setPoints] = useState<PacePoint[]>([]);
+  const [leadCurve, setLeadCurve] = useState<LeadTimeCurvePoint[]>([]);
+  const [maxCurveLagDays, setMaxCurveLagDays] = useState(14);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +90,7 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
   useEffect(() => {
     if (!orderedImports.length) {
       setPoints([]);
+      setLeadCurve([]);
       return;
     }
     let cancelled = false;
@@ -85,7 +100,7 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
     void Promise.all(orderedImports.map(async (snapshot) => {
       const reservations = await loadSnapshotReservations(snapshot.id);
       const metrics = calculateMetrics(property, reservations, filters);
-      return { snapshot, metrics };
+      return { snapshot, reservations, metrics };
     })).then((rows) => {
       if (cancelled) return;
       const next: PacePoint[] = rows.map(({ snapshot, metrics }, index) => {
@@ -108,7 +123,15 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
             : null,
         };
       });
+      const snapshotSets: SnapshotReservationSet[] = rows.map(({ snapshot, reservations }) => ({
+        snapshotId: snapshot.id,
+        dataAsOf: snapshot.dataAsOf,
+        reservations,
+      }));
+      const curve = calculateLeadTimeCurve(property, snapshotSets, filters);
       setPoints(next);
+      setLeadCurve(curve.points);
+      setMaxCurveLagDays(curve.maxSnapshotLagDays);
     }).catch((cause) => {
       if (!cancelled) setError(`Could not build pace timeline: ${String(cause)}`);
     }).finally(() => {
@@ -123,6 +146,12 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
   const totalRoomNightsPickup = latest && first ? latest.roomNights - first.roomNights : null;
   const totalRevenuePickup = latest && first ? latest.roomRevenueCents - first.roomRevenueCents : null;
   const totalOccupancyPickup = latest && first ? latest.occupancy - first.occupancy : null;
+  const leadChartData = leadCurve.map((point) => ({
+    ...point,
+    occupancyPct: point.occupancy === null ? null : point.occupancy * 100,
+    coveragePct: point.coverage * 100,
+  }));
+  const coveredCurvePoints = leadCurve.filter((point) => point.coveredStayDates > 0).length;
 
   return <>
     <div className="page-heading">
@@ -149,6 +178,14 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
           {latest && <div className="summary-list"><div><span>Occupancy</span><strong>{latest.occupancy.toFixed(1)}%</strong></div><div><span>Room nights</span><strong>{latest.roomNights}</strong></div><div><span>Room revenue</span><strong>{money(latest.roomRevenueCents, property.currency)}</strong></div><div><span>Reservations</span><strong>{latest.reservations}</strong></div><div><span>ADR</span><strong>{money(latest.adr, property.currency)}</strong></div><div><span>RevPAR</span><strong>{money(latest.revpar, property.currency)}</strong></div></div>}
         </article>
       </section>
+
+      <article className="panel lead-time-panel">
+        <div className="lead-time-heading"><div><p className="eyebrow">Days before arrival</p><h2>Lead-time booking curve</h2><p>Each D-point uses the last observed snapshot at or before that lead day. Snapshots more than {maxCurveLagDays} days old are excluded.</p></div><div className="lead-coverage-summary"><strong>{coveredCurvePoints}/{leadCurve.length}</strong><span>D-points with coverage</span></div></div>
+        {coveredCurvePoints ? <>
+          <div className="lead-time-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={leadChartData} margin={{ top: 10, right: 15, left: 0, bottom: 0 }}><CartesianGrid stroke="#e7e9ed" vertical={false} /><XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb" }} formatter={(value, name) => [`${Number(value).toFixed(1)}%`, name]} /><Legend /><Line type="monotone" dataKey="occupancyPct" name="OTB occupancy" stroke="#1f6f68" strokeWidth={2.5} dot={{ r: 3 }} connectNulls={false} /><Line type="monotone" dataKey="coveragePct" name="Data coverage" stroke="#8b929a" strokeWidth={1.5} strokeDasharray="5 4" dot={{ r: 2 }} /></ComposedChart></ResponsiveContainer></div>
+          <div className="pace-table-wrap lead-time-table"><table><thead><tr><th>Lead point</th><th>OTB occupancy</th><th>Room nights</th><th>Room revenue</th><th>ADR</th><th>Coverage</th><th>Avg. snapshot lag</th></tr></thead><tbody>{leadCurve.map((point) => <tr key={point.daysBeforeArrival}><td><strong>{point.label}</strong></td><td>{percentage(point.occupancy)}</td><td>{point.coveredStayDates ? point.roomNightsSold : "—"}</td><td>{point.coveredStayDates ? money(point.roomRevenueCents, property.currency) : "—"}</td><td>{money(point.adrCents, property.currency)}</td><td className={point.coverage < 0.5 ? "coverage-low" : ""}>{percentage(point.coverage)} <small>({point.coveredStayDates}/{point.totalStayDates} dates)</small></td><td>{point.averageSnapshotLagDays === null ? "—" : `${point.averageSnapshotLagDays.toFixed(1)} days`}</td></tr>)}</tbody></table></div>
+        </> : <div className="lead-time-empty">No selected stay dates have a historical snapshot within {maxCurveLagDays} days of the lead-time targets. Try a later stay period or import older snapshots.</div>}
+      </article>
 
       <article className="panel pace-table-panel">
         <div className="panel-heading"><div><h2>Snapshot-by-snapshot pickup</h2><p>Each row compares that booking position with the immediately previous imported snapshot.</p></div></div>
