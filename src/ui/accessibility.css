@@ -1,0 +1,174 @@
+:root {
+  --app-zoom: 1.1;
+  color-scheme: light;
+}
+
+html[data-theme="dark"] { color-scheme: dark; }
+body { zoom: var(--app-zoom); }
+
+/* Sidebar: remove the inconsistent placeholder icons entirely. */
+.nav-icon { display: none !important; }
+.nav-button { gap: 0 !important; padding-left: 14px !important; }
+
+/* Readability: the original interface used many 8–10 px labels. */
+.eyebrow,
+.filters label,
+th,
+.property-control label,
+.analysis-filter-title > span,
+.comparison-control,
+.kpi-label { font-size: 10.5px !important; }
+
+.page-heading p,
+.panel-heading p,
+.summary-list span,
+.summary-list strong,
+.as-of,
+.analysis-filter-title small,
+.analysis-filter-bar label,
+.analysis-estimate-note,
+.performance-comparison-band,
+.performance-coverage-notice,
+.booking-method-note,
+.booking-coverage-band,
+.booking-coverage-notice,
+.booking-status-note,
+.booking-status-notice,
+.occupancy-notice,
+.revenue-notice,
+.report-summary-table td,
+.settings-field span,
+.settings-source,
+.settings-help,
+.room-balance,
+small { font-size: 11.5px !important; }
+
+.filters input,
+.filters select,
+.analysis-filter-bar select,
+.comparison-control select,
+td,
+button,
+input,
+select { font-size: 12px !important; }
+
+.nav-button { font-size: 14px !important; }
+.panel-heading h2 { font-size: 16px !important; }
+.page-heading h1 { font-size: 30px !important; }
+.kpi-card > strong { font-size: 24px !important; }
+.kpi-card > span { font-size: 11px !important; }
+
+/* Appearance controls in Settings. */
+.settings-appearance-panel { margin-bottom: 16px; }
+.settings-preferences-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 1.4fr);
+  gap: 18px;
+  align-items: end;
+}
+.settings-preference-field { display: grid; gap: 7px; }
+.settings-preference-field > span { color: #65717b; font-weight: 700; font-size: 12px; }
+.settings-preference-field select {
+  min-height: 40px;
+  border: 1px solid #d8dde2;
+  border-radius: 8px;
+  background: #fff;
+  color: #26343e;
+  padding: 0 10px;
+}
+.settings-zoom-controls { display: flex; align-items: center; gap: 8px; }
+.settings-zoom-controls button {
+  min-width: 40px;
+  height: 40px;
+  border: 1px solid #d8dde2;
+  border-radius: 8px;
+  background: #fff;
+  color: #26343e;
+  font-weight: 800;
+}
+.settings-zoom-controls output {
+  min-width: 72px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 14px;
+}
+.settings-zoom-help { display: block; margin-top: 7px; color: #7b858d; line-height: 1.5; }
+
+/* Dark theme. The analytical chart colours remain intentionally stable. */
+html[data-theme="dark"] body { background: #0e1519 !important; color: #e5edeb !important; }
+html[data-theme="dark"] .app-shell main { background: #0e1519; }
+html[data-theme="dark"] .topbar {
+  background: rgba(18, 28, 33, .96) !important;
+  border-color: #2a3940 !important;
+}
+html[data-theme="dark"] .workspace { color: #e5edeb; }
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .kpi-card,
+html[data-theme="dark"] .filters,
+html[data-theme="dark"] .analysis-filter-bar,
+html[data-theme="dark"] .report-summary-selector,
+html[data-theme="dark"] .report-change-card,
+html[data-theme="dark"] .performance-comparison-band,
+html[data-theme="dark"] .booking-coverage-band,
+html[data-theme="dark"] .booking-method-note,
+html[data-theme="dark"] .booking-status-note,
+html[data-theme="dark"] .booking-status-notice,
+html[data-theme="dark"] .performance-coverage-notice,
+html[data-theme="dark"] .occupancy-notice,
+html[data-theme="dark"] .revenue-notice,
+html[data-theme="dark"] .settings-history-warning,
+html[data-theme="dark"] .settings-validation,
+html[data-theme="dark"] .room-balance,
+html[data-theme="dark"] .settings-help,
+html[data-theme="dark"] .settings-source,
+html[data-theme="dark"] .stly-note,
+html[data-theme="dark"] .pickup-reconciliation {
+  background: #162127 !important;
+  border-color: #2a3940 !important;
+  color: #dfe8e6 !important;
+}
+html[data-theme="dark"] .change-net { background: #152824 !important; }
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .filters input,
+html[data-theme="dark"] .filters select,
+html[data-theme="dark"] .analysis-filter-bar select,
+html[data-theme="dark"] .comparison-control select,
+html[data-theme="dark"] .settings-preference-field select,
+html[data-theme="dark"] .settings-zoom-controls button,
+html[data-theme="dark"] .secondary-button {
+  background: #10191e !important;
+  color: #e4ecea !important;
+  border-color: #34434a !important;
+}
+html[data-theme="dark"] th { background: #1a262c !important; color: #aab8b5 !important; }
+html[data-theme="dark"] td { border-color: #28363d !important; color: #c8d3d1 !important; }
+html[data-theme="dark"] td strong,
+html[data-theme="dark"] .panel-heading h2,
+html[data-theme="dark"] .page-heading h1,
+html[data-theme="dark"] .kpi-card > strong,
+html[data-theme="dark"] .summary-list strong,
+html[data-theme="dark"] .property-control select,
+html[data-theme="dark"] .report-change-card > strong,
+html[data-theme="dark"] .settings-preference-field > span { color: #f0f5f4 !important; }
+html[data-theme="dark"] .page-heading p,
+html[data-theme="dark"] .panel-heading p,
+html[data-theme="dark"] .kpi-label,
+html[data-theme="dark"] .summary-list span,
+html[data-theme="dark"] .as-of,
+html[data-theme="dark"] .property-control label,
+html[data-theme="dark"] small { color: #9eadaa !important; }
+html[data-theme="dark"] .summary-list > div,
+html[data-theme="dark"] .report-summary-table td,
+html[data-theme="dark"] .settings-room-row { border-color: #28363d !important; }
+html[data-theme="dark"] .modal { background: #152027 !important; color: #e5edeb !important; }
+html[data-theme="dark"] .modal-heading { border-color: #2a3940 !important; }
+html[data-theme="dark"] .close-button { background: #233038 !important; color: #d8e2e0 !important; }
+html[data-theme="dark"] .recharts-cartesian-grid line { stroke: #2b3940 !important; }
+html[data-theme="dark"] .recharts-text { fill: #aab6b4 !important; }
+html[data-theme="dark"] .recharts-tooltip-wrapper > div { background: #18242a !important; border-color: #34434a !important; color: #e6eeec !important; }
+
+@media (max-width: 900px) {
+  .settings-preferences-grid { grid-template-columns: 1fr; }
+}
