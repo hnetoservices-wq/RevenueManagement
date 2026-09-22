@@ -199,3 +199,38 @@ export interface LeadTimePaceComparisonResult {
   reliableCoverageThreshold: number;
   partialCoverageThreshold: number;
 }
+
+export type PickupChangeType = "new" | "cancelled" | "modified" | "removed";
+
+export interface PickupDecompositionEntry {
+  reservationId: string;
+  type: PickupChangeType;
+  beforeStatus: NormalizedStatus | null;
+  afterStatus: NormalizedStatus | null;
+  beforeCheckIn: IsoDate | null;
+  beforeCheckOut: IsoDate | null;
+  afterCheckIn: IsoDate | null;
+  afterCheckOut: IsoDate | null;
+  roomNightsDelta: number;
+  roomRevenueCentsDelta: number;
+  totalRevenueCentsDelta: number;
+  changedFields: string[];
+}
+
+export interface PickupDecompositionCategory {
+  type: PickupChangeType;
+  reservations: number;
+  roomNightsDelta: number;
+  roomRevenueCentsDelta: number;
+  totalRevenueCentsDelta: number;
+}
+
+export interface PickupDecompositionResult {
+  categories: PickupDecompositionCategory[];
+  entries: PickupDecompositionEntry[];
+  net: {
+    roomNightsDelta: number;
+    roomRevenueCentsDelta: number;
+    totalRevenueCentsDelta: number;
+  };
+}
