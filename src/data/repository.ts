@@ -8,6 +8,7 @@ export interface Repository {
   deleteInventoryClosure(propertyId: string, closureId: string): Promise<void>;
   listImports(propertyId: string): Promise<ImportSnapshotSummary[]>;
   listCurrentReservations(propertyId: string): Promise<Reservation[]>;
+  listHistoricalReservations(propertyId: string): Promise<Reservation[]>;
   listSnapshotReservations(propertyId: string, snapshotId: string): Promise<Reservation[]>;
   saveImport(preview: ImportPreview): Promise<ImportSnapshotSummary>;
 }
