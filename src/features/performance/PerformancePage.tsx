@@ -72,14 +72,16 @@ function DateFilters({ filters, setFilters }: { filters: DashboardFilters; setFi
   return <div className="filters"><label>From<input type="date" value={filters.startDate} onChange={(event) => setFilters({ ...filters, startDate: event.target.value as IsoDate })} /></label><label>To<input type="date" value={filters.endDate} onChange={(event) => setFilters({ ...filters, endDate: event.target.value as IsoDate })} /></label><label>Revenue<select value={filters.revenueBasis} onChange={(event) => setFilters({ ...filters, revenueBasis: event.target.value as DashboardFilters["revenueBasis"] })}><option value="inclusive">Incl. tax</option><option value="exclusive">Excl. tax</option></select></label></div>;
 }
 
-export function PerformancePage({ property, reservations, coverageReservations = reservations, filters, setFilters, statusFilter = "all" }: Props) {
+export function PerformancePage({ property, reservations, coverageReservations = reservations, filters, setFilters, statusFilter }: Props) {
   const [comparisonMode, setComparisonMode] = useState<PerformanceComparisonMode>("previous_year");
   const analysis = useMemo(
     () => calculatePerformanceAnalysis(property, reservations, filters, comparisonMode, coverageReservations),
     [property, reservations, coverageReservations, filters, comparisonMode],
   );
 
-  const cancelledMode = statusFilter === "cancelled";
+  const cancelledMode = statusFilter === "cancelled" || (
+    statusFilter === undefined && reservations.length > 0 && reservations.every((reservation) => reservation.status === "cancelled")
+  );
   const currentCancelled = useMemo(
     () => cancelledMode ? calculateReservationDescriptiveMetrics(reservations, filters) : null,
     [cancelledMode, reservations, filters],
