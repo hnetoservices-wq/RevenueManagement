@@ -1,0 +1,51 @@
+html[data-theme="dark"] .settings-closure-summary,
+html[data-theme="dark"] .settings-closure-validation,
+html[data-theme="dark"] .settings-closure-error,
+html[data-theme="dark"] .settings-closure-empty,
+html[data-theme="dark"] .settings-closure-note,
+html[data-theme="dark"] .occupancy-calendar-legend .occ-closure-legend {
+  background: #162127 !important;
+  border-color: #2a3940 !important;
+  color: #c8d3d1 !important;
+}
+
+html[data-theme="dark"] .settings-closure-summary strong {
+  color: #8fd3bd !important;
+}
+
+html[data-theme="dark"] .settings-closure-summary span,
+html[data-theme="dark"] .settings-closure-note,
+html[data-theme="dark"] .settings-closure-empty {
+  color: #9eadaa !important;
+}
+
+html[data-theme="dark"] .settings-closure-list,
+html[data-theme="dark"] .settings-closure-note {
+  border-color: #28363d !important;
+}
+
+html[data-theme="dark"] .settings-delete-closure {
+  background: #21191a !important;
+  border-color: #573331 !important;
+  color: #e5a29b !important;
+}
+
+html[data-theme="dark"] .settings-delete-closure:hover {
+  background: #2b1d1d !important;
+}
+
+html[data-theme="dark"] .settings-closure-validation {
+  background: #30291b !important;
+  border-color: #5a4828 !important;
+  color: #dfbe7a !important;
+}
+
+html[data-theme="dark"] .settings-closure-error {
+  background: #35201f !important;
+  border-color: #603632 !important;
+  color: #e5a29b !important;
+}
+
+html[data-theme="dark"] .occupancy-calendar-legend .occ-closure-legend {
+  color: #dfbe7a !important;
+}
