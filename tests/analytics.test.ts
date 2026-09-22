@@ -3,6 +3,7 @@ import {
   calculateLeadTimeCurve,
   calculateLeadTimePaceComparison,
   calculateMetrics,
+  calculatePickupDecomposition,
   calculateSnapshotComparison,
   coverageQuality,
 } from "../src/domain/analytics";
@@ -109,6 +110,83 @@ describe("core analytics", () => {
     expect(result.pickup.roomRevenueCents).toBe(24000);
     expect(result.pickup.reservations).toBe(1);
     expect(result.pickup.occupancyPercentagePoints).toBeCloseTo(100 / 9);
+  });
+
+  it("decomposes pickup into new, cancelled, modified, and removed reservations and reconciles to net pickup", () => {
+    const filters = { startDate: "2026-10-01" as const, endDate: "2026-10-31" as const, revenueBasis: "inclusive" as const };
+    const unchanged: Reservation = {
+      ...baseReservation,
+      reservationId: "UNCHANGED",
+      checkIn: "2026-10-02",
+      checkOut: "2026-10-04",
+      roomRevenueInclCents: 20000,
+      roomRevenueExclCents: 18868,
+      extraRevenueInclCents: 0,
+      extraRevenueExclCents: 0,
+      touristTaxCents: 1200,
+    };
+    const toCancel: Reservation = {
+      ...unchanged,
+      reservationId: "CANCEL",
+      checkIn: "2026-10-05",
+      checkOut: "2026-10-07",
+      roomRevenueInclCents: 22000,
+      roomRevenueExclCents: 20755,
+    };
+    const toModify: Reservation = {
+      ...unchanged,
+      reservationId: "MODIFY",
+      checkIn: "2026-10-10",
+      checkOut: "2026-10-12",
+      roomRevenueInclCents: 24000,
+      roomRevenueExclCents: 22642,
+    };
+    const toRemove: Reservation = {
+      ...unchanged,
+      reservationId: "REMOVE",
+      checkIn: "2026-10-15",
+      checkOut: "2026-10-16",
+      roomRevenueInclCents: 9000,
+      roomRevenueExclCents: 8491,
+      touristTaxCents: 600,
+    };
+    const newBooking: Reservation = {
+      ...unchanged,
+      reservationId: "NEW",
+      checkIn: "2026-10-20",
+      checkOut: "2026-10-23",
+      roomRevenueInclCents: 36000,
+      roomRevenueExclCents: 33962,
+      touristTaxCents: 1800,
+    };
+    const cancelled: Reservation = { ...toCancel, status: "cancelled", sourceStatus: "cancelled" };
+    const modified: Reservation = {
+      ...toModify,
+      checkOut: "2026-10-13",
+      roomRevenueInclCents: 33000,
+      roomRevenueExclCents: 31132,
+      touristTaxCents: 1800,
+    };
+
+    const baseline = [unchanged, toCancel, toModify, toRemove];
+    const current = [unchanged, cancelled, modified, newBooking];
+    const result = calculatePickupDecomposition(MALMERENDAS_PROPERTY, baseline, current, filters);
+    const snapshot = calculateSnapshotComparison(MALMERENDAS_PROPERTY, baseline, current, filters);
+
+    expect(result.entries.map((entry) => entry.type).sort()).toEqual(["cancelled", "modified", "new", "removed"].sort());
+    expect(result.categories.find((category) => category.type === "new")?.reservations).toBe(1);
+    expect(result.categories.find((category) => category.type === "cancelled")?.reservations).toBe(1);
+    expect(result.categories.find((category) => category.type === "modified")?.reservations).toBe(1);
+    expect(result.categories.find((category) => category.type === "removed")?.reservations).toBe(1);
+    expect(result.entries.find((entry) => entry.type === "modified")?.changedFields).toContain("stay dates");
+    expect(result.entries.find((entry) => entry.type === "modified")?.changedFields).toContain("room revenue");
+
+    const categoryRoomNights = result.categories.reduce((sum, category) => sum + category.roomNightsDelta, 0);
+    const categoryRoomRevenue = result.categories.reduce((sum, category) => sum + category.roomRevenueCentsDelta, 0);
+    expect(categoryRoomNights).toBe(result.net.roomNightsDelta);
+    expect(categoryRoomRevenue).toBe(result.net.roomRevenueCentsDelta);
+    expect(result.net.roomNightsDelta).toBe(snapshot.pickup.roomNightsSold);
+    expect(result.net.roomRevenueCentsDelta).toBe(snapshot.pickup.roomRevenueCents);
   });
 
   it("reconstructs lead-time booking positions only from snapshots available by each D-point", () => {
