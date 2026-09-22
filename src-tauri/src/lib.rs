@@ -108,9 +108,6 @@ async fn save_import_snapshot(
         .await
         .map_err(|error| database_error_at("open database", error))?;
 
-    // Acquire the SQLite write reservation up-front. Managing the transaction
-    // explicitly avoids a second rollback being attempted after SQLite has
-    // already ended a failed transaction, which otherwise masks the real error.
     sqlx::query("BEGIN IMMEDIATE")
         .execute(&mut connection)
         .await
@@ -236,12 +233,20 @@ async fn save_import_snapshot(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let migrations = vec![Migration {
-        version: 1,
-        description: "initial_revenue_management_schema",
-        sql: include_str!("../migrations/001_initial.sql"),
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "initial_revenue_management_schema",
+            sql: include_str!("../migrations/001_initial.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "current_reservations_from_latest_snapshot",
+            sql: include_str!("../migrations/002_current_snapshot.sql"),
+            kind: MigrationKind::Up,
+        },
+    ];
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
