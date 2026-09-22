@@ -17,7 +17,24 @@
 .pace-table-wrap td.negative { color: #bc5a50; font-weight: 700; }
 .pace-table-wrap td.neutral { color: #8a9299; }
 
+.lead-time-panel { margin-bottom: 16px; padding: 0; overflow: hidden; }
+.lead-time-heading { padding: 20px 20px 8px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.lead-time-heading h2 { margin: 0; font-size: 14px; }
+.lead-time-heading p:not(.eyebrow) { margin: 4px 0 0; color: #9299a1; font-size: 10px; line-height: 1.55; }
+.lead-coverage-summary { min-width: 120px; padding: 10px 12px; border: 1px solid #e4e7ea; border-radius: 9px; background: #f8f9fa; text-align: right; }
+.lead-coverage-summary strong, .lead-coverage-summary span { display: block; }
+.lead-coverage-summary strong { color: #26343e; font-size: 18px; }
+.lead-coverage-summary span { margin-top: 2px; color: #8a9299; font-size: 9px; }
+.lead-time-chart { height: 310px; padding: 0 12px 0 4px; }
+.lead-time-table { border-top: 1px solid #eceef1; }
+.lead-time-table table { min-width: 840px; }
+.lead-time-table td small { color: #9ba1a7; font-size: 9px; }
+.lead-time-table td.coverage-low { color: #ad762e; font-weight: 700; }
+.lead-time-empty { margin: 8px 20px 20px; padding: 30px; border: 1px dashed #d9dde1; border-radius: 10px; color: #858d95; background: #fafbfb; text-align: center; font-size: 11px; line-height: 1.6; }
+
 @media (max-width: 1250px) {
   .pace-summary-grid { grid-template-columns: repeat(2, minmax(170px, 1fr)); }
   .pace-grid { grid-template-columns: 1fr; }
+  .lead-time-heading { align-items: stretch; }
+  .lead-coverage-summary { min-width: 105px; }
 }
