@@ -5,6 +5,7 @@ export interface Repository {
   listProperties(): Promise<Property[]>;
   listImports(propertyId: string): Promise<ImportSnapshotSummary[]>;
   listCurrentReservations(propertyId: string): Promise<Reservation[]>;
+  listSnapshotReservations(propertyId: string, snapshotId: string): Promise<Reservation[]>;
   saveImport(preview: ImportPreview): Promise<ImportSnapshotSummary>;
 }
 
