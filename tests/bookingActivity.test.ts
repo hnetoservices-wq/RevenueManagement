@@ -110,8 +110,9 @@ describe("booking activity", () => {
   });
 
   it("defaults to the last 30 observed booking dates instead of future calendar dates", () => {
-    const latest: Reservation = { ...base, bookedAt: "2026-09-22" };
-    const range = defaultBookingRange([latest]);
+    const earliest: Reservation = { ...base, reservationId: "RANGE-EARLY", bookedAt: "2026-07-01" };
+    const latest: Reservation = { ...base, reservationId: "RANGE-LATEST", bookedAt: "2026-09-22" };
+    const range = defaultBookingRange([earliest, latest]);
     expect(range.endDate).toBe("2026-09-22");
     expect(range.startDate).toBe("2026-08-24");
   });
