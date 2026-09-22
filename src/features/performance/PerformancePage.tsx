@@ -9,6 +9,8 @@ import {
   YAxis,
 } from "recharts";
 import type { CoverageQuality, DashboardFilters, IsoDate, Property, Reservation } from "../../domain/models";
+import { calculateReservationDescriptiveMetrics } from "../filters/descriptiveMetrics";
+import type { AnalysisStatusFilter } from "../filters/analysisFilters";
 import { calculatePerformanceAnalysis, type PerformanceComparisonMode } from "./performance";
 import "./performance.css";
 
@@ -18,6 +20,7 @@ interface Props {
   coverageReservations?: Reservation[];
   filters: DashboardFilters;
   setFilters: (filters: DashboardFilters) => void;
+  statusFilter?: AnalysisStatusFilter;
 }
 
 function money(cents: number | null, currency: string) {
@@ -69,19 +72,36 @@ function DateFilters({ filters, setFilters }: { filters: DashboardFilters; setFi
   return <div className="filters"><label>From<input type="date" value={filters.startDate} onChange={(event) => setFilters({ ...filters, startDate: event.target.value as IsoDate })} /></label><label>To<input type="date" value={filters.endDate} onChange={(event) => setFilters({ ...filters, endDate: event.target.value as IsoDate })} /></label><label>Revenue<select value={filters.revenueBasis} onChange={(event) => setFilters({ ...filters, revenueBasis: event.target.value as DashboardFilters["revenueBasis"] })}><option value="inclusive">Incl. tax</option><option value="exclusive">Excl. tax</option></select></label></div>;
 }
 
-export function PerformancePage({ property, reservations, coverageReservations = reservations, filters, setFilters }: Props) {
+export function PerformancePage({ property, reservations, coverageReservations = reservations, filters, setFilters, statusFilter = "all" }: Props) {
   const [comparisonMode, setComparisonMode] = useState<PerformanceComparisonMode>("previous_year");
   const analysis = useMemo(
     () => calculatePerformanceAnalysis(property, reservations, filters, comparisonMode, coverageReservations),
     [property, reservations, coverageReservations, filters, comparisonMode],
   );
 
+  const cancelledMode = statusFilter === "cancelled";
+  const currentCancelled = useMemo(
+    () => cancelledMode ? calculateReservationDescriptiveMetrics(reservations, filters) : null,
+    [cancelledMode, reservations, filters],
+  );
+  const comparisonCancelled = useMemo(
+    () => cancelledMode && analysis.comparisonFilters
+      ? calculateReservationDescriptiveMetrics(reservations, analysis.comparisonFilters)
+      : null,
+    [cancelledMode, reservations, analysis.comparisonFilters],
+  );
+
   const comparisonName = comparisonMode === "previous_year" ? "PY" : comparisonMode === "previous_period" ? "Prev. period" : "Comparison";
   const current = analysis.current;
   const comparison = analysis.comparisonReliable ? analysis.comparison : null;
+  const reliableCancelledComparison = analysis.comparisonReliable ? comparisonCancelled : null;
   const unavailableDelta = comparisonMode === "none"
     ? { text: "No comparison", value: null }
     : { text: "Insufficient comparison data", value: null };
+
+  const reservationsValue = cancelledMode ? currentCancelled?.reservations ?? 0 : current.reservations;
+  const averageLosValue = cancelledMode ? currentCancelled?.averageLengthOfStay ?? null : current.averageLengthOfStay;
+  const averageLeadValue = cancelledMode ? currentCancelled?.averageLeadTime ?? null : current.averageLeadTime;
 
   const kpis = [
     { label: "Occupancy", value: percent(current.occupancy), delta: comparison ? rateDelta(current.occupancy, comparison.occupancy) : unavailableDelta },
@@ -89,9 +109,9 @@ export function PerformancePage({ property, reservations, coverageReservations =
     { label: "RevPAR", value: money(current.revparCents, property.currency), delta: comparison ? relativeDelta(current.revparCents, comparison.revparCents) : unavailableDelta },
     { label: "Room revenue", value: money(current.roomRevenueCents, property.currency), delta: comparison ? relativeDelta(current.roomRevenueCents, comparison.roomRevenueCents) : unavailableDelta },
     { label: "Room nights", value: number(current.roomNightsSold), delta: comparison ? relativeDelta(current.roomNightsSold, comparison.roomNightsSold) : unavailableDelta },
-    { label: "Reservations", value: number(current.reservations), delta: comparison ? relativeDelta(current.reservations, comparison.reservations) : unavailableDelta },
-    { label: "Average LOS", value: `${number(current.averageLengthOfStay, 1)} nights`, delta: comparison ? absoluteDelta(current.averageLengthOfStay, comparison.averageLengthOfStay, "nights") : unavailableDelta },
-    { label: "Average lead time", value: `${number(current.averageLeadTime, 1)} days`, delta: comparison ? absoluteDelta(current.averageLeadTime, comparison.averageLeadTime, "days") : unavailableDelta },
+    { label: "Reservations", value: number(reservationsValue), delta: cancelledMode ? (reliableCancelledComparison ? relativeDelta(reservationsValue, reliableCancelledComparison.reservations) : unavailableDelta) : (comparison ? relativeDelta(current.reservations, comparison.reservations) : unavailableDelta) },
+    { label: "Average LOS", value: `${number(averageLosValue, 1)} nights`, delta: cancelledMode ? (reliableCancelledComparison ? absoluteDelta(averageLosValue, reliableCancelledComparison.averageLengthOfStay, "nights") : unavailableDelta) : (comparison ? absoluteDelta(current.averageLengthOfStay, comparison.averageLengthOfStay, "nights") : unavailableDelta) },
+    { label: "Average lead time", value: `${number(averageLeadValue, 1)} days`, delta: cancelledMode ? (reliableCancelledComparison ? absoluteDelta(averageLeadValue, reliableCancelledComparison.averageLeadTime, "days") : unavailableDelta) : (comparison ? absoluteDelta(current.averageLeadTime, comparison.averageLeadTime, "days") : unavailableDelta) },
   ];
 
   return <>
@@ -102,12 +122,14 @@ export function PerformancePage({ property, reservations, coverageReservations =
 
     {analysis.comparisonFilters && <div className="performance-comparison-band"><span>Selected period <strong>{filters.startDate} → {filters.endDate}</strong></span><span>Compared with <strong>{analysis.comparisonFilters.startDate} → {analysis.comparisonFilters.endDate}</strong></span><span>Comparison coverage <strong>{percent(analysis.comparisonCoverage?.coverage ?? 0)}</strong></span></div>}
 
+    {cancelledMode && <div className="performance-coverage-notice coverage-partial"><strong>Cancelled reservation analysis</strong><span>Reservation count, LOS and lead time describe cancelled bookings. Cancelled stays remain excluded from occupancy, sold room nights, ADR, RevPAR and revenue.</span></div>}
+
     {analysis.currentCoverage.coverage < 1 && <div className={`performance-coverage-notice ${qualityClass(analysis.currentCoverage.quality)}`}><strong>Selected-period data is incomplete</strong><span>Available stay data begins at <b>{analysis.dataAvailabilityStartDate ?? "an unknown date"}</b>. Metrics use only the covered part of the selected range ({percent(analysis.currentCoverage.coverage)} coverage).</span></div>}
 
     {comparisonMode !== "none" && analysis.comparisonCoverage && analysis.comparisonCoverage.coverage < 1 && <div className={`performance-coverage-notice ${qualityClass(analysis.comparisonCoverage.quality)}`}><strong>{analysis.comparisonReliable ? "Comparison period is partially covered" : "Comparison data is insufficient"}</strong><span>Historical stay data is conservatively available from <b>{analysis.dataAvailabilityStartDate ?? "an unknown date"}</b>. Only {percent(analysis.comparisonCoverage.coverage)} of the requested comparison period is covered. Headline deltas require at least {Math.round(analysis.reliableCoverageThreshold * 100)}% coverage; uncovered trend and monthly segments are left blank.</span></div>}
 
     <section className="performance-kpi-grid">
-      {kpis.map((kpi) => <article className="kpi-card" key={kpi.label}><div className="kpi-label">{kpi.label}</div><strong>{kpi.value}</strong><span className={tone(kpi.delta.value)}>{kpi.delta.text}{comparison ? ` vs ${comparisonName}` : ""}</span></article>)}
+      {kpis.map((kpi) => <article className="kpi-card" key={kpi.label}><div className="kpi-label">{kpi.label}</div><strong>{kpi.value}</strong><span className={tone(kpi.delta.value)}>{kpi.delta.text}{comparison || reliableCancelledComparison ? ` vs ${comparisonName}` : ""}</span></article>)}
     </section>
 
     <section className="performance-chart-grid">
