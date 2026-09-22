@@ -2,10 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { format } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import {
   Bar,
-  BarChart,
   CartesianGrid,
   Cell,
   ComposedChart,
@@ -18,7 +17,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { calculateDashboard, comparison } from "./domain/analytics";
+import { calculateDashboard, calculateSnapshotComparison, comparison } from "./domain/analytics";
 import { DEFAULT_STATUS_MAPPING } from "./domain/property";
 import type {
   DashboardFilters,
@@ -27,6 +26,7 @@ import type {
   IsoDate,
   Property,
   Reservation,
+  SnapshotComparisonResult,
 } from "./domain/models";
 import { createRepository } from "./data/createRepository";
 import { DuplicateImportError } from "./data/repository";
@@ -50,8 +50,20 @@ function money(cents: number | null, currency = "EUR") {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(cents / 100);
 }
 
+function signedMoney(cents: number | null, currency = "EUR") {
+  if (cents === null) return "—";
+  const value = money(Math.abs(cents), currency);
+  return cents > 0 ? `+${value}` : cents < 0 ? `−${value}` : value;
+}
+
 function number(value: number | null, digits = 0) {
   return value === null ? "—" : new Intl.NumberFormat("en-GB", { maximumFractionDigits: digits }).format(value);
+}
+
+function signedNumber(value: number | null, digits = 0) {
+  if (value === null) return "—";
+  const formatted = number(Math.abs(value), digits);
+  return value > 0 ? `+${formatted}` : value < 0 ? `−${formatted}` : formatted;
 }
 
 function percent(value: number | null) {
@@ -277,7 +289,7 @@ function App() {
                 </>
               )}
             </>
-          ) : <ImportsPage imports={imports} onImport={() => void chooseFile()} />}
+          ) : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
         </div>
       </main>
 
@@ -311,8 +323,61 @@ function EmptyState({ onImport }: { onImport: () => void }) {
   return <section className="empty-state"><div className="empty-graphic"><span /><span /><span /></div><p className="eyebrow">First snapshot</p><h2>Import your Amenitiz reservation report</h2><p>The report will be validated locally. Guest names and contact details will not be saved.</p><button className="primary-button" onClick={onImport}>Choose XLSX or CSV</button><small>Expected file: Amenitiz reservation report</small></section>;
 }
 
-function ImportsPage({ imports, onImport }: { imports: ImportSnapshotSummary[]; onImport: () => void }) {
-  return <><div className="page-heading"><div><p className="eyebrow">Data history</p><h1>Imports</h1><p>Every import is preserved as an immutable historical snapshot.</p></div><button className="primary-button" onClick={onImport}>+ Import report</button></div><article className="panel imports-panel">{imports.length ? <table><thead><tr><th>Data as of</th><th>Filename</th><th>Imported</th><th>Rows</th><th>Valid</th><th>Warnings</th><th>Excluded</th></tr></thead><tbody>{imports.map((item) => <tr key={item.id}><td><strong>{item.dataAsOf}</strong></td><td>{item.filename}</td><td>{format(new Date(item.importedAt), "dd MMM yyyy, HH:mm")}</td><td>{item.rowCount}</td><td className="valid-count">{item.validRowCount}</td><td>{item.warningCount}</td><td className={item.excludedRowCount ? "error-count" : ""}>{item.excludedRowCount}</td></tr>)}</tbody></table> : <div className="table-empty">No snapshots imported yet.</div>}</article></>;
+function ImportsPage({ imports, onImport, property, filters, setFilters }: { imports: ImportSnapshotSummary[]; onImport: () => void; property: Property; filters: DashboardFilters; setFilters: (value: DashboardFilters) => void }) {
+  return <><div className="page-heading"><div><p className="eyebrow">Data history</p><h1>Imports</h1><p>Every import is preserved as an immutable historical snapshot.</p></div><button className="primary-button" onClick={onImport}>+ Import report</button></div><SnapshotComparisonPanel imports={imports} property={property} filters={filters} setFilters={setFilters} /><article className="panel imports-panel">{imports.length ? <table><thead><tr><th>Data as of</th><th>Filename</th><th>Imported</th><th>Rows</th><th>Valid</th><th>Warnings</th><th>Excluded</th></tr></thead><tbody>{imports.map((item) => <tr key={item.id}><td><strong>{item.dataAsOf}</strong></td><td>{item.filename}</td><td>{format(new Date(item.importedAt), "dd MMM yyyy, HH:mm")}</td><td>{item.rowCount}</td><td className="valid-count">{item.validRowCount}</td><td>{item.warningCount}</td><td className={item.excludedRowCount ? "error-count" : ""}>{item.excludedRowCount}</td></tr>)}</tbody></table> : <div className="table-empty">No snapshots imported yet.</div>}</article></>;
+}
+
+function SnapshotComparisonPanel({ imports, property, filters, setFilters }: { imports: ImportSnapshotSummary[]; property: Property; filters: DashboardFilters; setFilters: (value: DashboardFilters) => void }) {
+  const [currentId, setCurrentId] = useState(imports[0]?.id ?? "");
+  const [baselineId, setBaselineId] = useState(imports[1]?.id ?? "");
+  const [result, setResult] = useState<SnapshotComparisonResult | null>(null);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [loadingComparison, setLoadingComparison] = useState(false);
+
+  useEffect(() => {
+    if (!imports.some((item) => item.id === currentId)) setCurrentId(imports[0]?.id ?? "");
+    if (!imports.some((item) => item.id === baselineId)) setBaselineId(imports[1]?.id ?? "");
+  }, [imports, currentId, baselineId]);
+
+  useEffect(() => {
+    if (!currentId || !baselineId || currentId === baselineId) {
+      setResult(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingComparison(true);
+    setComparisonError(null);
+    void Promise.all([
+      repository.listSnapshotReservations(property.id, baselineId),
+      repository.listSnapshotReservations(property.id, currentId),
+    ]).then(([baselineReservations, currentReservations]) => {
+      if (!cancelled) setResult(calculateSnapshotComparison(property, baselineReservations, currentReservations, filters));
+    }).catch((cause) => {
+      if (!cancelled) setComparisonError(`Could not compare snapshots: ${String(cause)}`);
+    }).finally(() => {
+      if (!cancelled) setLoadingComparison(false);
+    });
+    return () => { cancelled = true; };
+  }, [baselineId, currentId, filters, property]);
+
+  if (imports.length < 2) {
+    return <article className="panel snapshot-empty"><PanelHeading title="Snapshot comparison" subtitle="Pickup becomes available after a second import" /><p>Import another Amenitiz report on a later date to measure how room nights, occupancy and revenue changed between booking positions.</p></article>;
+  }
+
+  const currentSnapshot = imports.find((item) => item.id === currentId);
+  const baselineSnapshot = imports.find((item) => item.id === baselineId);
+  const elapsedDays = currentSnapshot && baselineSnapshot ? differenceInCalendarDays(parseISO(currentSnapshot.dataAsOf), parseISO(baselineSnapshot.dataAsOf)) : null;
+  const tone = (value: number | null) => value === null || value === 0 ? "neutral" : value > 0 ? "positive" : "negative";
+  const cards = result ? [
+    { label: "Room nights pickup", value: signedNumber(result.pickup.roomNightsSold), detail: `${number(result.baseline.roomNightsSold)} → ${number(result.current.roomNightsSold)}`, tone: tone(result.pickup.roomNightsSold) },
+    { label: "Occupancy pickup", value: result.pickup.occupancyPercentagePoints === null ? "—" : `${signedNumber(result.pickup.occupancyPercentagePoints, 1)} pp`, detail: `${percent(result.baseline.occupancy)} → ${percent(result.current.occupancy)}`, tone: tone(result.pickup.occupancyPercentagePoints) },
+    { label: "Room revenue pickup", value: signedMoney(result.pickup.roomRevenueCents, property.currency), detail: `${money(result.baseline.roomRevenueCents, property.currency)} → ${money(result.current.roomRevenueCents, property.currency)}`, tone: tone(result.pickup.roomRevenueCents) },
+    { label: "Reservations pickup", value: signedNumber(result.pickup.reservations), detail: `${number(result.baseline.reservations)} → ${number(result.current.reservations)}`, tone: tone(result.pickup.reservations) },
+    { label: "ADR change", value: signedMoney(result.pickup.adrCents, property.currency), detail: `${money(result.baseline.adrCents, property.currency)} → ${money(result.current.adrCents, property.currency)}`, tone: tone(result.pickup.adrCents) },
+    { label: "RevPAR change", value: signedMoney(result.pickup.revparCents, property.currency), detail: `${money(result.baseline.revparCents, property.currency)} → ${money(result.current.revparCents, property.currency)}`, tone: tone(result.pickup.revparCents) },
+  ] : [];
+
+  return <article className="panel snapshot-comparison"><div className="snapshot-header"><div><p className="eyebrow">Historical intelligence</p><h2>Snapshot comparison</h2><p>Measure pickup for the same stay dates between two booking positions.</p></div><DateFilters filters={filters} setFilters={setFilters} /></div><div className="snapshot-selectors"><label>Baseline snapshot<select value={baselineId} onChange={(event) => setBaselineId(event.target.value)}>{imports.map((item) => <option key={item.id} value={item.id}>{item.dataAsOf} · {item.filename}</option>)}</select></label><div className="snapshot-arrow">→</div><label>Later snapshot<select value={currentId} onChange={(event) => setCurrentId(event.target.value)}>{imports.map((item) => <option key={item.id} value={item.id}>{item.dataAsOf} · {item.filename}</option>)}</select></label></div>{currentId === baselineId && <div className="alert"><span>Select two different snapshots.</span></div>}{elapsedDays !== null && currentId !== baselineId && <p className="snapshot-period">Booking position moved from <strong>{baselineSnapshot?.dataAsOf}</strong> to <strong>{currentSnapshot?.dataAsOf}</strong>{elapsedDays >= 0 ? ` · ${elapsedDays} day${elapsedDays === 1 ? "" : "s"} of pickup` : " · snapshots selected in reverse order"}</p>}{comparisonError && <div className="alert"><span>{comparisonError}</span></div>}{loadingComparison ? <div className="snapshot-loading">Calculating snapshot pickup…</div> : result && <section className="snapshot-kpi-grid">{cards.map((card) => <div className="snapshot-kpi" key={card.label}><span>{card.label}</span><strong className={card.tone}>{card.value}</strong><small>{card.detail}</small></div>)}</section>}</article>;
 }
 
 function ImportModal({ preview, setPreview, onCancel, onConfirm, busy, propertyName }: { preview: ImportPreview; setPreview: (value: ImportPreview) => void; onCancel: () => void; onConfirm: () => void; busy: boolean; propertyName: string }) {
