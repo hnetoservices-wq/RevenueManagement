@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateMetrics, calculateSnapshotComparison } from "../src/domain/analytics";
+import { calculateLeadTimeCurve, calculateMetrics, calculateSnapshotComparison } from "../src/domain/analytics";
 import { MALMERENDAS_PROPERTY } from "../src/domain/property";
 import type { Reservation } from "../src/domain/models";
 
@@ -103,5 +103,57 @@ describe("core analytics", () => {
     expect(result.pickup.roomRevenueCents).toBe(24000);
     expect(result.pickup.reservations).toBe(1);
     expect(result.pickup.occupancyPercentagePoints).toBeCloseTo(100 / 9);
+  });
+
+  it("reconstructs lead-time booking positions only from snapshots available by each D-point", () => {
+    const firstBooking: Reservation = {
+      ...baseReservation,
+      reservationId: "OCT-1",
+      checkIn: "2026-10-01",
+      checkOut: "2026-10-02",
+      roomRevenueInclCents: 12000,
+      roomRevenueExclCents: 11321,
+      touristTaxCents: 600,
+      extraRevenueInclCents: 0,
+      extraRevenueExclCents: 0,
+    };
+    const secondBooking: Reservation = {
+      ...firstBooking,
+      reservationId: "OCT-2",
+      roomRevenueInclCents: 15000,
+      roomRevenueExclCents: 14151,
+    };
+    const snapshots = [
+      { snapshotId: "S-0901", dataAsOf: "2026-09-01" as const, reservations: [firstBooking] },
+      { snapshotId: "S-0915", dataAsOf: "2026-09-15" as const, reservations: [firstBooking, secondBooking] },
+    ];
+
+    const result = calculateLeadTimeCurve(
+      MALMERENDAS_PROPERTY,
+      snapshots,
+      { startDate: "2026-10-01", endDate: "2026-10-01", revenueBasis: "inclusive" },
+      [30, 20, 10],
+      14,
+    );
+
+    expect(result.points[0].label).toBe("D-30");
+    expect(result.points[0].roomNightsSold).toBe(1);
+    expect(result.points[0].occupancy).toBeCloseTo(1 / 6);
+    expect(result.points[0].averageSnapshotLagDays).toBe(0);
+    expect(result.points[1].roomNightsSold).toBe(1);
+    expect(result.points[1].averageSnapshotLagDays).toBe(10);
+    expect(result.points[2].roomNightsSold).toBe(2);
+    expect(result.points[2].occupancy).toBeCloseTo(2 / 6);
+    expect(result.points[2].averageSnapshotLagDays).toBe(6);
+
+    const strict = calculateLeadTimeCurve(
+      MALMERENDAS_PROPERTY,
+      snapshots,
+      { startDate: "2026-10-01", endDate: "2026-10-01", revenueBasis: "inclusive" },
+      [20],
+      7,
+    );
+    expect(strict.points[0].coveredStayDates).toBe(0);
+    expect(strict.points[0].occupancy).toBeNull();
   });
 });
