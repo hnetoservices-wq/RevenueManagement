@@ -42,6 +42,10 @@
 - Sellable-inventory denominators throughout core analytics, so Occupancy and RevPAR exclude recorded unavailable room nights while ADR remains based on sold room nights.
 - Unavailable-room indicators in the Occupancy calendar and unavailable room-night context in inventory KPIs.
 - Inventory-closure regression coverage for inclusive dates, reduced sellable inventory, overlap validation, and room-type filtering.
+- Normalized legacy historical CSV import for pre-Amenitiz 2024/2025 booking history, including booking date, stay dates, status, channel, exact room allocation, and room revenue without storing guest PII.
+- Historical final-data imports are kept separate from Amenitiz booking-position snapshots and become authoritative only for their covered stay-date range, preventing overlap and double counting with current Amenitiz data.
+- Automatic detection of the normalized historical CSV through the existing import workflow, with validation and explicit warnings for unavailable source revenue.
+- Historical-import regression coverage for UTF-8 CSV detection, room allocation, segmented historical stays, coverage dates, and historical/live merge precedence.
 - Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, Performance-period, incomplete-history, and analysis-filter regression coverage.
 
 ### Fixed
