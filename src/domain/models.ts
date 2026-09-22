@@ -138,3 +138,19 @@ export interface DashboardResult {
   current: DashboardMetrics;
   previousYear: DashboardMetrics;
 }
+
+export interface SnapshotPickup {
+  roomNightsSold: number;
+  roomRevenueCents: number;
+  totalRevenueCents: number;
+  reservations: number;
+  occupancyPercentagePoints: number | null;
+  adrCents: number | null;
+  revparCents: number | null;
+}
+
+export interface SnapshotComparisonResult {
+  baseline: DashboardMetrics;
+  current: DashboardMetrics;
+  pickup: SnapshotPickup;
+}
