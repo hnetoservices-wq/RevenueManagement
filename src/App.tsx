@@ -30,6 +30,12 @@ import type {
 } from "./domain/models";
 import { createRepository } from "./data/createRepository";
 import { DuplicateImportError } from "./data/repository";
+import { AnalysisFilterBar } from "./features/filters/AnalysisFilterBar";
+import {
+  DEFAULT_ANALYSIS_FILTERS,
+  applyAnalysisFilters,
+  type AnalysisFilters,
+} from "./features/filters/analysisFilters";
 import { parseAmenitizFile } from "./features/import/amenitiz";
 import { PacePickupPage } from "./features/pace/PacePickupPage";
 import { PerformancePage } from "./features/performance/PerformancePage";
@@ -114,6 +120,7 @@ function App() {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [analysisFilters, setAnalysisFilters] = useState<AnalysisFilters>(DEFAULT_ANALYSIS_FILTERS);
   const inputRef = useRef<HTMLInputElement>(null);
   const year = new Date().getFullYear();
   const [filters, setFilters] = useState<DashboardFilters>({
@@ -123,6 +130,12 @@ function App() {
   });
 
   const property = properties.find((item) => item.id === propertyId) ?? properties[0];
+  const filteredAnalysis = useMemo(
+    () => property ? applyAnalysisFilters(property, reservations, analysisFilters) : null,
+    [property, reservations, analysisFilters],
+  );
+  const analyticalProperty = filteredAnalysis?.property ?? property;
+  const analyticalReservations = filteredAnalysis?.reservations ?? [];
 
   const refresh = useCallback(async (selectedPropertyId: string) => {
     const [nextReservations, nextImports] = await Promise.all([
@@ -158,10 +171,16 @@ function App() {
   }, [toast]);
 
   const dashboard = useMemo(
-    () => property ? calculateDashboard(property, reservations, filters) : null,
-    [property, reservations, filters],
+    () => analyticalProperty ? calculateDashboard(analyticalProperty, analyticalReservations, filters) : null,
+    [analyticalProperty, analyticalReservations, filters],
   );
   const performance = useMemo(() => chartData(dashboard?.current.daily ?? []), [dashboard]);
+
+  const loadFilteredSnapshotReservations = useCallback(async (snapshotId: string) => {
+    if (!property) return [];
+    const snapshotReservations = await repository.listSnapshotReservations(property.id, snapshotId);
+    return applyAnalysisFilters(property, snapshotReservations, analysisFilters).reservations;
+  }, [property, analysisFilters]);
 
   async function prepareImport(bytes: Uint8Array, filename: string) {
     if (!property) return;
@@ -216,11 +235,12 @@ function App() {
 
   async function changeProperty(nextId: string) {
     setPropertyId(nextId);
+    setAnalysisFilters(DEFAULT_ANALYSIS_FILTERS);
     setLoading(true);
     try { await refresh(nextId); } finally { setLoading(false); }
   }
 
-  if (loading || !property || !dashboard) {
+  if (loading || !property || !analyticalProperty || !dashboard) {
     return <div className="loading-screen"><div className="spinner" /><p>Opening your local revenue workspace…</p></div>;
   }
 
@@ -228,9 +248,9 @@ function App() {
   const previous = dashboard.previousYear;
   const kpis = [
     { label: "Occupancy", value: percent(current.occupancy), delta: deltaText(current.occupancy, previous.occupancy, true) },
-    { label: "ADR", value: money(current.adrCents, property.currency), delta: deltaText(current.adrCents, previous.adrCents) },
-    { label: "RevPAR", value: money(current.revparCents, property.currency), delta: deltaText(current.revparCents, previous.revparCents) },
-    { label: "Room revenue", value: money(current.roomRevenueCents, property.currency), delta: deltaText(current.roomRevenueCents, previous.roomRevenueCents) },
+    { label: "ADR", value: money(current.adrCents, analyticalProperty.currency), delta: deltaText(current.adrCents, previous.adrCents) },
+    { label: "RevPAR", value: money(current.revparCents, analyticalProperty.currency), delta: deltaText(current.revparCents, previous.revparCents) },
+    { label: "Room revenue", value: money(current.roomRevenueCents, analyticalProperty.currency), delta: deltaText(current.roomRevenueCents, previous.roomRevenueCents) },
     { label: "Room nights sold", value: number(current.roomNightsSold), delta: deltaText(current.roomNightsSold, previous.roomNightsSold) },
     { label: "Available room nights", value: number(current.availableRoomNights), delta: { text: "Configured inventory", tone: "neutral" } },
     { label: "Reservations", value: number(current.reservations), delta: deltaText(current.reservations, previous.reservations) },
@@ -268,6 +288,7 @@ function App() {
 
         <div className="workspace">
           {error && <div className="alert"><span>{error}</span><button onClick={() => setError(null)}>Dismiss</button></div>}
+          {page !== "imports" && <AnalysisFilterBar property={property} reservations={reservations} filters={analysisFilters} setFilters={setAnalysisFilters} roomTypeRevenueEstimated={filteredAnalysis?.roomTypeRevenueEstimated ?? false} estimatedReservationCount={filteredAnalysis?.estimatedReservationCount ?? 0} />}
           {page === "dashboard" ? (
             <>
               <div className="page-heading"><div><p className="eyebrow">Revenue overview</p><h1>Dashboard</h1><p>Stay-date performance and previous-year comparison.</p></div><DateFilters filters={filters} setFilters={setFilters} /></div>
@@ -281,17 +302,17 @@ function App() {
                     </article>
                     <article className="panel">
                       <PanelHeading title="Revenue by channel" subtitle={`${current.channels.length} active channels`} />
-                      <div className="channel-chart"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={current.channels} dataKey="roomRevenueCents" nameKey="channel" innerRadius={58} outerRadius={85} paddingAngle={2}>{current.channels.map((entry, index) => <Cell key={entry.channel} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={(value) => money(Number(value), property.currency)} /></PieChart></ResponsiveContainer><div className="channel-legend">{current.channels.slice(0, 5).map((channel, index) => <div key={channel.channel}><span style={{ background: COLORS[index % COLORS.length] }} /><strong>{channel.channel}</strong><em>{money(channel.roomRevenueCents, property.currency)}</em></div>)}</div></div>
+                      <div className="channel-chart"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={current.channels} dataKey="roomRevenueCents" nameKey="channel" innerRadius={58} outerRadius={85} paddingAngle={2}>{current.channels.map((entry, index) => <Cell key={entry.channel} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={(value) => money(Number(value), analyticalProperty.currency)} /></PieChart></ResponsiveContainer><div className="channel-legend">{current.channels.slice(0, 5).map((channel, index) => <div key={channel.channel}><span style={{ background: COLORS[index % COLORS.length] }} /><strong>{channel.channel}</strong><em>{money(channel.roomRevenueCents, analyticalProperty.currency)}</em></div>)}</div></div>
                     </article>
                     <article className="panel">
                       <PanelHeading title="Operational summary" subtitle="Selected stay dates" />
-                      <div className="summary-list"><SummaryRow label="Total revenue" value={money(current.totalRevenueCents, property.currency)} /><SummaryRow label="Extra revenue" value={money(current.extraRevenueCents, property.currency)} /><SummaryRow label="Tourist tax" value={money(current.touristTaxCents, property.currency)} /><SummaryRow label="Median lead time" value={`${number(current.medianLeadTime, 1)} days`} /><SummaryRow label="Median LOS" value={`${number(current.medianLengthOfStay, 1)} nights`} /><SummaryRow label="Cancellation rate" value={percent(current.cancellationRate)} /></div>
+                      <div className="summary-list"><SummaryRow label="Total revenue" value={money(current.totalRevenueCents, analyticalProperty.currency)} /><SummaryRow label="Extra revenue" value={money(current.extraRevenueCents, analyticalProperty.currency)} /><SummaryRow label="Tourist tax" value={money(current.touristTaxCents, analyticalProperty.currency)} /><SummaryRow label="Median lead time" value={`${number(current.medianLeadTime, 1)} days`} /><SummaryRow label="Median LOS" value={`${number(current.medianLengthOfStay, 1)} nights`} /><SummaryRow label="Cancellation rate" value={percent(current.cancellationRate)} /></div>
                     </article>
                   </section>
                 </>
               )}
             </>
-          ) : page === "performance" ? <PerformancePage property={property} reservations={reservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={property} filters={filters} setFilters={setFilters} loadSnapshotReservations={(snapshotId) => repository.listSnapshotReservations(property.id, snapshotId)} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
+          ) : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} filters={filters} setFilters={setFilters} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
         </div>
       </main>
 
