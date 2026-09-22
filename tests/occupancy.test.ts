@@ -61,7 +61,7 @@ describe("occupancy analysis", () => {
     expect(wednesday?.roomNightsSold).toBe(0);
   });
 
-  it("keeps prior-year occupancy comparison suppressed when raw history is incomplete", () => {
+  it("suppresses aggregate PY deltas while allowing individually reliable trend segments", () => {
     const prior: Reservation = {
       ...reservation,
       reservationId: "OCC-PY",
@@ -88,7 +88,8 @@ describe("occupancy analysis", () => {
     expect(result.comparisonReliable).toBe(false);
     expect(result.comparison).toBeNull();
     expect(result.roomTypes.every((row) => row.comparisonOccupancy === null)).toBe(true);
-    expect(result.demandTrend.every((row) => row.comparisonOccupancy === null)).toBe(true);
+    expect(result.demandTrend.slice(0, 11).every((row) => row.comparisonOccupancy === null)).toBe(true);
+    expect(result.demandTrend[11].comparisonOccupancy).toBe(0);
   });
 
   it("counts high-demand and sold-out dates from daily OTB occupancy", () => {
