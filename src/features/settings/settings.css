@@ -6,8 +6,8 @@
 .settings-field { display: flex; flex-direction: column; gap: 6px; }
 .settings-field.wide { grid-column: span 2; }
 .settings-field span, .settings-source > span { color: #77808a; font-size: 9px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
-.settings-field input { min-height: 40px; border: 1px solid #dce1e5; border-radius: 8px; padding: 0 12px; font: inherit; color: #1d2a33; background: #fff; }
-.settings-field input:focus, .settings-room-row input:focus { outline: 2px solid rgba(31, 111, 104, .13); border-color: #6c9d97; }
+.settings-field input, .settings-field select { min-height: 40px; border: 1px solid #dce1e5; border-radius: 8px; padding: 0 12px; font: inherit; color: #1d2a33; background: #fff; }
+.settings-field input:focus, .settings-field select:focus, .settings-room-row input:focus { outline: 2px solid rgba(31, 111, 104, .13); border-color: #6c9d97; }
 .settings-source { grid-column: span 2; display: flex; flex-direction: column; gap: 5px; padding: 12px 14px; border-radius: 8px; background: #f7f9fa; border: 1px solid #e3e7ea; }
 .settings-source strong { font-size: 12px; }
 .settings-source small { color: #7c858e; font-size: 10px; line-height: 1.45; }
@@ -34,6 +34,37 @@
 .settings-history-warning { display: flex; gap: 12px; align-items: baseline; }
 .settings-history-warning strong { flex: 0 0 auto; margin: 0; }
 
+.settings-closures-panel { margin-top: 16px; padding: 0; overflow: hidden; }
+.settings-closures-heading { padding: 20px 20px 10px; align-items: flex-start; }
+.settings-closures-heading h2 { margin-top: 0; }
+.settings-closure-summary { min-width: 170px; padding: 10px 12px; border: 1px solid #dce5e2; border-radius: 9px; background: #f4f9f7; text-align: right; }
+.settings-closure-summary strong, .settings-closure-summary span { display: block; }
+.settings-closure-summary strong { color: #1f6f68; font-size: 22px; }
+.settings-closure-summary span { margin-top: 2px; color: #70807b; font-size: 9px; line-height: 1.35; }
+.settings-closure-form { display: grid; grid-template-columns: 1.35fr .65fr .8fr .8fr 1.5fr auto; gap: 10px; align-items: end; padding: 8px 20px 16px; }
+.settings-closure-reason { min-width: 180px; }
+.settings-closure-actions { display: flex; gap: 8px; align-items: center; }
+.settings-closure-actions .primary-button, .settings-closure-actions .secondary-button { white-space: nowrap; }
+.settings-closure-validation, .settings-closure-error { margin: 0 20px 14px; padding: 10px 12px; border-radius: 8px; font-size: 10px; }
+.settings-closure-validation { border: 1px solid #ead4a8; background: #fff8ec; color: #7a5a22; }
+.settings-closure-error { border: 1px solid #efcbc7; background: #fff3f2; color: #9f463e; }
+.settings-closure-list { overflow-x: auto; border-top: 1px solid #eceff1; }
+.settings-closure-list table { min-width: 920px; }
+.settings-closure-list th, .settings-closure-list td { padding: 12px 14px; }
+.settings-closure-list td:last-child { width: 1%; white-space: nowrap; }
+.settings-closure-row-actions { display: flex; gap: 7px; justify-content: flex-end; }
+.settings-closure-row-actions .secondary-button { padding: 7px 10px; }
+.settings-delete-closure { border: 1px solid #e6d2cf; border-radius: 8px; padding: 7px 10px; background: #fff; color: #a4544c; font-weight: 700; }
+.settings-delete-closure:hover { background: #fff6f5; }
+.settings-closure-empty { padding: 28px 20px; color: #828b93; text-align: center; font-size: 11px; }
+.settings-closure-note { margin: 0; padding: 12px 20px 18px; border-top: 1px solid #eceff1; color: #7a848c; font-size: 10px; line-height: 1.5; }
+
+@media (max-width: 1350px) {
+  .settings-closure-form { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+  .settings-closure-reason { grid-column: span 2; }
+  .settings-closure-actions { grid-column: span 2; justify-content: flex-end; }
+}
+
 @media (max-width: 1150px) {
   .settings-grid { grid-template-columns: 1fr; }
 }
@@ -42,4 +73,8 @@
   .settings-form-grid { grid-template-columns: 1fr; }
   .settings-field.wide, .settings-source { grid-column: auto; }
   .settings-room-list-head, .settings-room-row { grid-template-columns: 1fr 100px 36px; }
+  .settings-closure-form { grid-template-columns: 1fr; }
+  .settings-closure-reason, .settings-closure-actions { grid-column: auto; }
+  .settings-closure-actions { justify-content: stretch; }
+  .settings-closure-actions button { flex: 1; }
 }
