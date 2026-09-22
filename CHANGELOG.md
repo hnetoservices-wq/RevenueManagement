@@ -8,7 +8,9 @@
 - Snapshot-to-snapshot pickup calculations for room nights, occupancy, revenue, reservations, ADR, and RevPAR.
 - Snapshot comparison controls and pickup KPI cards on the Imports page.
 - Dedicated Pace & Pickup page with all-snapshot booking-position timeline and consecutive pickup table.
-- Automated pickup regression coverage.
+- Snapshot-based days-before-arrival booking curve at D-180, D-90, D-60, D-30, D-14, D-7, D-3, and D-0.
+- Lead-time curve coverage and average snapshot-lag indicators so sparse historical data is visible.
+- Automated pickup and lead-time reconstruction regression coverage.
 
 ### Fixed
 
