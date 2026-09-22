@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { calculateMetrics } from "../../domain/analytics";
 import type { DashboardFilters, ImportSnapshotSummary, IsoDate, Property, Reservation } from "../../domain/models";
+import "./pace.css";
 
 interface PacePoint {
   snapshotId: string;
