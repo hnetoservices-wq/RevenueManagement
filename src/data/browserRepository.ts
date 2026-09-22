@@ -1,5 +1,6 @@
 import { MALMERENDAS_PROPERTY } from "../domain/property";
-import type { ImportPreview, ImportSnapshotSummary, Property, Reservation } from "../domain/models";
+import { validateInventoryClosure } from "../domain/inventory";
+import type { ImportPreview, ImportSnapshotSummary, InventoryClosure, Property, Reservation } from "../domain/models";
 import { DuplicateImportError, type Repository } from "./repository";
 
 interface StoredSnapshot {
@@ -10,27 +11,40 @@ interface StoredSnapshot {
 interface BrowserState {
   properties: Property[];
   snapshots: StoredSnapshot[];
+  inventoryClosures?: InventoryClosure[];
 }
 
 const STORAGE_KEY = "local-revenue-manager:v1";
 
+function propertyWithoutClosures(property: Property): Property {
+  const stored = structuredClone(property);
+  delete stored.inventoryClosures;
+  return stored;
+}
+
 export class BrowserRepository implements Repository {
-  private state: BrowserState = { properties: [MALMERENDAS_PROPERTY], snapshots: [] };
+  private state: BrowserState = { properties: [propertyWithoutClosures(MALMERENDAS_PROPERTY)], snapshots: [], inventoryClosures: [] };
 
   async initialize(): Promise<void> {
     const existing = localStorage.getItem(STORAGE_KEY);
     if (existing) this.state = JSON.parse(existing) as BrowserState;
-    else this.persist();
+    this.state.inventoryClosures ??= [];
+    if (!existing) this.persist();
   }
 
   async listProperties(): Promise<Property[]> {
-    return structuredClone(this.state.properties);
+    const closures = this.state.inventoryClosures ?? [];
+    return this.state.properties.map((property) => ({
+      ...structuredClone(property),
+      inventoryClosures: structuredClone(closures.filter((closure) => closure.propertyId === property.id)),
+    }));
   }
 
   async saveProperty(property: Property): Promise<Property> {
+    const storedProperty = propertyWithoutClosures(property);
     const existingIndex = this.state.properties.findIndex((item) => item.id === property.id);
     if (existingIndex === -1) {
-      this.state.properties.push(structuredClone(property));
+      this.state.properties.push(storedProperty);
     } else {
       const existing = this.state.properties[existingIndex];
       const suppliedIds = new Set(property.roomTypes.map((room) => room.id));
@@ -39,13 +53,35 @@ export class BrowserRepository implements Repository {
         .filter((room) => !suppliedIds.has(room.id))
         .map((room) => ({ ...room, activeTo: room.activeTo ?? retiredAt }));
       this.state.properties[existingIndex] = structuredClone({
-        ...property,
-        roomTypes: [...property.roomTypes, ...retired],
+        ...storedProperty,
+        roomTypes: [...storedProperty.roomTypes, ...retired],
       });
     }
     this.state.properties.sort((a, b) => a.name.localeCompare(b.name));
     this.persist();
     return structuredClone(property);
+  }
+
+  async saveInventoryClosure(closure: InventoryClosure): Promise<InventoryClosure> {
+    const properties = await this.listProperties();
+    const property = properties.find((item) => item.id === closure.propertyId);
+    if (!property) throw new Error("Property not found.");
+    const issues = validateInventoryClosure(property, closure, property.inventoryClosures ?? []);
+    if (issues.length) throw new Error(issues[0]);
+
+    const closures = this.state.inventoryClosures ?? (this.state.inventoryClosures = []);
+    const existingIndex = closures.findIndex((item) => item.id === closure.id && item.propertyId === closure.propertyId);
+    if (existingIndex === -1) closures.push(structuredClone(closure));
+    else closures[existingIndex] = structuredClone(closure);
+    closures.sort((a, b) => b.startDate.localeCompare(a.startDate) || a.roomTypeId.localeCompare(b.roomTypeId));
+    this.persist();
+    return structuredClone(closure);
+  }
+
+  async deleteInventoryClosure(propertyId: string, closureId: string): Promise<void> {
+    const closures = this.state.inventoryClosures ?? [];
+    this.state.inventoryClosures = closures.filter((item) => !(item.propertyId === propertyId && item.id === closureId));
+    this.persist();
   }
 
   async listImports(propertyId: string): Promise<ImportSnapshotSummary[]> {
