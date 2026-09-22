@@ -47,6 +47,13 @@ export class BrowserRepository implements Repository {
     return Array.from(latest.values()).map((item) => structuredClone(item.reservation));
   }
 
+  async listSnapshotReservations(propertyId: string, snapshotId: string): Promise<Reservation[]> {
+    const snapshot = this.state.snapshots.find(
+      (item) => item.summary.propertyId === propertyId && item.summary.id === snapshotId,
+    );
+    return snapshot ? structuredClone(snapshot.reservations) : [];
+  }
+
   async saveImport(preview: ImportPreview): Promise<ImportSnapshotSummary> {
     if (this.state.snapshots.some((snapshot) => snapshot.summary.propertyId === preview.propertyId && snapshot.summary.fileHash === preview.fileHash)) {
       throw new DuplicateImportError();
