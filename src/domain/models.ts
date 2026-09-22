@@ -88,7 +88,6 @@ export interface DashboardFilters {
   startDate: IsoDate;
   endDate: IsoDate;
   revenueBasis: RevenueBasis;
-  reservationMetricStatus?: "active" | "cancelled";
 }
 
 export interface MetricValue {
