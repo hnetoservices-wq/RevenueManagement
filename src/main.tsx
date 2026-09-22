@@ -3,12 +3,14 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { initPortuguesePhrases } from "./ui/ptPTPhrases";
 import { initPortugueseUi } from "./ui/ptPT";
+import { initPortugueseNumberFormatting } from "./ui/ptPTNumbers";
 import { initUiPreferences } from "./ui/preferences";
 import "./styles.css";
 import "./snapshot.css";
 import "./ui/accessibility.css";
 
 initUiPreferences();
+initPortugueseNumberFormatting();
 initPortuguesePhrases();
 initPortugueseUi();
 
