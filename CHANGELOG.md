@@ -32,6 +32,7 @@
 - Low-coverage lead-time observations no longer appear as directly comparable full-period booking-curve points.
 - Performance previous-year/previous-period comparisons no longer treat unavailable historical dates as zero occupancy or zero revenue.
 - Aggregate Performance comparison deltas are suppressed when fewer than 80% of the requested comparison dates are covered.
+- `Cancelled only` now reports cancelled reservation count, LOS, and lead time while continuing to exclude cancelled stays from occupancy, sold room nights, ADR, RevPAR, and revenue.
 
 ## 0.1.0 - 2026-09-21
 
