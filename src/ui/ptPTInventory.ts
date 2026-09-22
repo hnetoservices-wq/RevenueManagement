@@ -21,8 +21,7 @@ const replacements: Array<[RegExp, string]> = [
   [/^(\d+) room nights unavailable$/i, "$1 noites-quarto indisponíveis"],
   [/^You cannot close more than (\d+) rooms? of this type\.$/i, "Não pode marcar mais de $1 quartos deste tipo como indisponíveis."],
   [/^Too many (.+) rooms would be unavailable on (\d{4}-\d{2}-\d{2})\.$/i, "Existiriam demasiados quartos $1 indisponíveis em $2."],
-  [/\bindisponívelis\b/g, "indisponíveis"],
-]);
+];
 
 function translate(value: string) {
   const trimmed = value.trim();
@@ -31,6 +30,7 @@ function translate(value: string) {
   let translated = direct ?? trimmed;
   if (!direct) {
     for (const [pattern, replacement] of replacements) translated = translated.replace(pattern, replacement);
+    translated = translated.replaceAll("indisponívelis", "indisponíveis");
   }
   if (translated === trimmed) return value;
   const leading = value.match(/^\s*/)?.[0] ?? "";
