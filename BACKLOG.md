@@ -8,8 +8,8 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 
 ## Property and commercial configuration
 
-- Add inventory exceptions for out-of-order rooms and closure dates.
 - Version room-inventory quantity changes by effective date so post-import inventory edits never rewrite historical occupancy denominators.
+- Version inventory-closure knowledge by booking-position date if historical pace analysis later needs to reproduce exactly what inventory was considered sellable at each historical snapshot.
 - Add channel classification / grouping so direct channels such as Amenitiz and manual reservations can optionally be rolled into one Direct category.
 - Add channel commission settings and net revenue after distribution cost.
 - Verify the native Windows installer on Hudson's computer.
