@@ -136,4 +136,33 @@ describe("performance analysis", () => {
     expect(result.trend[10].comparisonOccupancy).toBeNull();
     expect(result.trend[11].comparisonOccupancy).toBe(0);
   });
+
+  it("keeps availability coverage based on raw data when the analytical subset starts later", () => {
+    const historicalRaw: Reservation = {
+      ...reservation,
+      reservationId: "RAW-HISTORY",
+      checkIn: "2025-11-15",
+      checkOut: "2025-11-16",
+      bookedAt: "2025-10-01",
+      source: "Amenitiz",
+    };
+    const filteredOnly: Reservation = {
+      ...reservation,
+      reservationId: "FILTERED-CURRENT",
+      checkIn: "2026-03-10",
+      checkOut: "2026-03-11",
+      source: "Expedia",
+    };
+
+    const result = calculatePerformanceAnalysis(
+      MALMERENDAS_PROPERTY,
+      [filteredOnly],
+      { ...filters, startDate: "2026-01-01", endDate: "2026-12-31" },
+      "previous_year",
+      [historicalRaw, filteredOnly],
+    );
+
+    expect(result.dataAvailabilityStartDate).toBe("2025-11-15");
+    expect(result.comparisonCoverage?.coveredDays).toBe(47);
+  });
 });
