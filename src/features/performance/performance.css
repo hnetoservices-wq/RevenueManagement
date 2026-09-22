@@ -1,0 +1,27 @@
+.performance-heading { align-items: flex-start; }
+.performance-header-controls { display: flex; align-items: flex-end; gap: 10px; }
+.comparison-control { min-width: 150px; display: flex; flex-direction: column; gap: 5px; color: #89919a; font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.comparison-control select { min-height: 36px; padding: 0 30px 0 11px; border: 1px solid #e1e5e8; border-radius: 8px; background: #f8f9fa; color: #24313a; font-size: 10px; font-weight: 700; }
+.performance-comparison-band { margin-bottom: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 24px; border: 1px solid #e5e8eb; border-radius: 9px; background: #f8f9fa; color: #7a838b; font-size: 9px; }
+.performance-comparison-band strong { color: #33424c; }
+.performance-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.performance-kpi-grid .kpi-card > strong.positive, .performance-table-wrap td.positive { color: #298063; }
+.performance-kpi-grid .kpi-card > strong.negative, .performance-table-wrap td.negative { color: #bc5a50; }
+.performance-kpi-grid .kpi-card > span.positive, .performance-table-wrap td.positive { color: #298063; font-weight: 700; }
+.performance-kpi-grid .kpi-card > span.negative, .performance-table-wrap td.negative { color: #bc5a50; font-weight: 700; }
+.performance-kpi-grid .kpi-card > span.neutral, .performance-table-wrap td.neutral { color: #8b939a; }
+.performance-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.performance-chart-panel { min-width: 0; }
+.performance-chart { height: 320px; padding: 0 8px 6px 0; }
+.performance-table-panel { padding: 0; overflow: hidden; }
+.performance-table-panel .panel-heading { padding: 20px 20px 8px; }
+.performance-table-wrap { overflow-x: auto; }
+.performance-table-wrap table { min-width: 1120px; }
+.performance-table-wrap td:first-child strong, .performance-table-wrap td:first-child small { display: block; }
+.performance-table-wrap td:first-child small { margin-top: 3px; color: #9ba2a8; font-size: 8px; }
+
+@media (max-width: 1250px) {
+  .performance-header-controls { flex-wrap: wrap; justify-content: flex-end; }
+  .performance-kpi-grid { grid-template-columns: repeat(2, minmax(170px, 1fr)); }
+  .performance-chart-grid { grid-template-columns: 1fr; }
+}
