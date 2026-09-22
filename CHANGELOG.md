@@ -20,9 +20,12 @@
 - Automatic daily, weekly, and monthly Performance trend granularity based on the selected stay-date range.
 - Monthly Performance table with occupancy, ADR, RevPAR, room nights, room revenue, and comparison deltas.
 - Performance data-coverage indicators and monthly comparison-coverage diagnostics.
-- Shared Channel, Room Type, and Status analysis filters across Dashboard, Performance, and Pace & Pickup.
+- Shared Channel, Room Type, and Status analysis filters across Dashboard, Performance, Occupancy, and Pace & Pickup.
 - Room-type inventory projection so filtered occupancy uses the selected room type's actual available-room denominator.
 - Explicit estimated-revenue notice for mixed multi-room reservations when a room-type filter requires proportional allocation.
+- Dedicated Occupancy dashboard with room-night demand trend, exact occupancy by room type, weekday patterns, highest/lowest-demand dates, and a daily OTB occupancy calendar.
+- Occupancy comparison modes for previous year, immediately preceding equal-length period, or none, with the same 80% historical-coverage safeguard used by Performance.
+- Occupancy regression coverage for room-type denominators, weekday grouping, sold-out/high-demand dates, and incomplete prior-year history.
 - Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, Performance-period, incomplete-history, and analysis-filter regression coverage.
 
 ### Fixed
