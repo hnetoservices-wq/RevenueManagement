@@ -14,7 +14,10 @@ export function initPortugueseNumberFormatting() {
   } as unknown as Intl.NumberFormatConstructor;
 
   Object.setPrototypeOf(LocalizedNumberFormat, NativeNumberFormat);
-  LocalizedNumberFormat.prototype = NativeNumberFormat.prototype;
+  Object.defineProperty(LocalizedNumberFormat, "prototype", {
+    value: NativeNumberFormat.prototype,
+    writable: false,
+  });
   Intl.NumberFormat = LocalizedNumberFormat;
   installed = true;
 }
