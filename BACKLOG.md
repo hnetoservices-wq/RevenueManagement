@@ -4,14 +4,18 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 
 ## Next
 
-- Verify the native Windows installer on Hudson's computer.
+- Add equivalent prior-year booking-position matching using the historical snapshot closest to the same data-as-of date last year.
+- Promote snapshot comparison into a dedicated Pace & Pickup dashboard.
+- Add booking pace curves and configurable days-before-arrival buckets.
+- Add stay-date / booking-date analysis mode.
+- Add channel, room type, and status global filters.
+
+## Property and commercial configuration
+
 - Add property creation and editing wizard.
 - Add inventory exceptions for out-of-order rooms and closure dates.
 - Add channel commission settings and net revenue after distribution cost.
-- Add stay-date / booking-date analysis mode.
-- Add channel, room type, and status global filters.
-- Add current snapshot versus equivalent prior-year snapshot comparison.
-- Add booking pace and pickup dashboards.
+- Verify the native Windows installer on Hudson's computer.
 
 ## Later analytics
 
