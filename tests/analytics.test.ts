@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { calculateLeadTimeCurve, calculateMetrics, calculateSnapshotComparison } from "../src/domain/analytics";
+import {
+  calculateLeadTimeCurve,
+  calculateLeadTimePaceComparison,
+  calculateMetrics,
+  calculateSnapshotComparison,
+  coverageQuality,
+} from "../src/domain/analytics";
 import { MALMERENDAS_PROPERTY } from "../src/domain/property";
 import type { Reservation } from "../src/domain/models";
 
@@ -155,5 +161,56 @@ describe("core analytics", () => {
     );
     expect(strict.points[0].coveredStayDates).toBe(0);
     expect(strict.points[0].occupancy).toBeNull();
+  });
+
+  it("classifies lead-time coverage for plotting", () => {
+    expect(coverageQuality(0.8)).toBe("reliable");
+    expect(coverageQuality(0.79)).toBe("partial");
+    expect(coverageQuality(0.5)).toBe("partial");
+    expect(coverageQuality(0.49)).toBe("insufficient");
+  });
+
+  it("compares equivalent lead-time positions with the prior year only when both are reliable", () => {
+    const currentOne: Reservation = {
+      ...baseReservation,
+      reservationId: "CUR-1",
+      checkIn: "2026-10-01",
+      checkOut: "2026-10-02",
+      roomRevenueInclCents: 12000,
+      roomRevenueExclCents: 11321,
+      touristTaxCents: 600,
+      extraRevenueInclCents: 0,
+      extraRevenueExclCents: 0,
+    };
+    const currentTwo: Reservation = { ...currentOne, reservationId: "CUR-2" };
+    const priorOne: Reservation = {
+      ...currentOne,
+      reservationId: "PY-1",
+      checkIn: "2025-10-01",
+      checkOut: "2025-10-02",
+      bookedAt: "2025-08-01",
+    };
+    const snapshots = [
+      { snapshotId: "PY-D30", dataAsOf: "2025-09-01" as const, reservations: [priorOne] },
+      { snapshotId: "CUR-D30", dataAsOf: "2026-09-01" as const, reservations: [currentOne, currentTwo] },
+    ];
+
+    const result = calculateLeadTimePaceComparison(
+      MALMERENDAS_PROPERTY,
+      snapshots,
+      { startDate: "2026-10-01", endDate: "2026-10-01", revenueBasis: "inclusive" },
+      [30, 20],
+      14,
+    );
+
+    expect(result.points[0].currentQuality).toBe("reliable");
+    expect(result.points[0].previousYearQuality).toBe("reliable");
+    expect(result.points[0].current.occupancy).toBeCloseTo(2 / 6);
+    expect(result.points[0].previousYear.occupancy).toBeCloseTo(1 / 6);
+    expect(result.points[0].occupancyPercentagePointChange).toBeCloseTo(100 / 6);
+
+    expect(result.points[1].currentQuality).toBe("reliable");
+    expect(result.points[1].previousYearQuality).toBe("reliable");
+    expect(result.points[1].occupancyPercentagePointChange).toBeCloseTo(100 / 6);
   });
 });
