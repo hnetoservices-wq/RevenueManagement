@@ -15,6 +15,7 @@ import "./performance.css";
 interface Props {
   property: Property;
   reservations: Reservation[];
+  coverageReservations?: Reservation[];
   filters: DashboardFilters;
   setFilters: (filters: DashboardFilters) => void;
 }
@@ -68,11 +69,11 @@ function DateFilters({ filters, setFilters }: { filters: DashboardFilters; setFi
   return <div className="filters"><label>From<input type="date" value={filters.startDate} onChange={(event) => setFilters({ ...filters, startDate: event.target.value as IsoDate })} /></label><label>To<input type="date" value={filters.endDate} onChange={(event) => setFilters({ ...filters, endDate: event.target.value as IsoDate })} /></label><label>Revenue<select value={filters.revenueBasis} onChange={(event) => setFilters({ ...filters, revenueBasis: event.target.value as DashboardFilters["revenueBasis"] })}><option value="inclusive">Incl. tax</option><option value="exclusive">Excl. tax</option></select></label></div>;
 }
 
-export function PerformancePage({ property, reservations, filters, setFilters }: Props) {
+export function PerformancePage({ property, reservations, coverageReservations = reservations, filters, setFilters }: Props) {
   const [comparisonMode, setComparisonMode] = useState<PerformanceComparisonMode>("previous_year");
   const analysis = useMemo(
-    () => calculatePerformanceAnalysis(property, reservations, filters, comparisonMode),
-    [property, reservations, filters, comparisonMode],
+    () => calculatePerformanceAnalysis(property, reservations, filters, comparisonMode, coverageReservations),
+    [property, reservations, coverageReservations, filters, comparisonMode],
   );
 
   const comparisonName = comparisonMode === "previous_year" ? "PY" : comparisonMode === "previous_period" ? "Prev. period" : "Comparison";
