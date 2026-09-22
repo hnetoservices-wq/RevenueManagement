@@ -34,8 +34,8 @@ const exact = new Map<string, string>([
   ["To", "Até"],
   ["Booked from", "Reservado de"],
   ["Booked to", "Reservado até"],
-  ["Incl. tax", "Incl. impostos"],
-  ["Excl. tax", "Excl. impostos"],
+  ["Incl. tax", "Inclui impostos"],
+  ["Excl. tax", "Exclui impostos"],
   ["Compare", "Comparar"],
   ["Previous year", "Ano anterior"],
   ["Previous period", "Período anterior"],
@@ -67,6 +67,7 @@ const exact = new Map<string, string>([
   ["Configured inventory", "Inventário configurado"],
   ["No comparison", "Sem comparação"],
   ["No comparable base", "Sem base comparável"],
+  ["No prior-year data", "Sem dados do ano anterior"],
   ["Insufficient comparison data", "Dados de comparação insuficientes"],
   ["Comparison data is insufficient", "Os dados de comparação são insuficientes"],
   ["Selected period", "Período selecionado"],
@@ -120,7 +121,6 @@ const exact = new Map<string, string>([
   ["Import source", "Origem da importação"],
   ["Amenitiz reservation report", "Relatório de reservas Amenitiz"],
   ["CSV room matching", "Correspondência de quartos no CSV (valores separados por vírgulas)"],
-  ["Configured inventory", "Inventário configurado"],
   ["Example", "Exemplo"],
   ["Room types", "Tipos de quarto"],
   ["+ Add room type", "+ Adicionar tipo de quarto"],
@@ -193,23 +193,27 @@ const exact = new Map<string, string>([
   ["No change", "Sem alterações"],
   ["Occupancy unchanged", "Ocupação manteve-se"],
   ["Earlier snapshot", "Relatório anterior"],
-  ["Later snapshot", "Relatório posterior"],
-  ["Data as of", "Dados à data de"],
   ["Filename", "Nome do ficheiro"],
   ["Imported", "Importado"],
   ["Rows", "Linhas"],
-  ["Import report", "Importar relatório"],
+  ["Property name is required.", "O nome da propriedade é obrigatório."],
+  ["Currency must use a 3-letter code such as EUR.", "A moeda deve usar um código de três letras, como EUR (euro)."],
+  ["Timezone is required.", "O fuso horário é obrigatório."],
+  ["Number of rooms must be a positive whole number.", "O número de quartos deve ser um número inteiro positivo."],
+  ["Add at least one room type.", "Adicione pelo menos um tipo de quarto."],
+  ["Every room type needs the exact name used in Amenitiz.", "Cada tipo de quarto necessita do nome exato utilizado no Amenitiz."],
 ]);
 
 const replacements: Array<[RegExp, string]> = [
-  [/\bADR\b/g, "ADR (Tarifa média diária)"],
-  [/\bRevPAR\b/g, "RevPAR (Receita por quarto disponível)"],
+  [/\bADR\b(?! \(Tarifa média diária\))/g, "ADR (Tarifa média diária)"],
+  [/\bRevPAR\b(?! \(Receita por quarto disponível\))/g, "RevPAR (Receita por quarto disponível)"],
   [/\bLOS\b/g, "duração da estadia"],
   [/\bPY\b/g, "ano anterior"],
   [/\bSTLY\b/g, "mesmo momento do ano anterior"],
   [/\bOTB\b/g, "reservas em carteira"],
   [/\bRN\b/g, "noites-quarto"],
   [/\bpp\b/g, "pontos percentuais"],
+  [/\bvs\b/gi, "comparado com"],
   [/\broom nights\b/gi, "noites-quarto"],
   [/\broom night\b/gi, "noite-quarto"],
   [/\broom revenue\b/gi, "receita de alojamento"],
@@ -228,22 +232,22 @@ const replacements: Array<[RegExp, string]> = [
   [/\bcancelled\b/gi, "cancelada"],
   [/\bmodified\b/gi, "alterada"],
   [/\bstatus\b/gi, "estado"],
-  [/\bextras\b/gi, "extras"],
   [/\bnew reservation\b/gi, "nova reserva"],
   [/\bnew bookings\b/gi, "novas reservas"],
   [/\bcancellations\b/gi, "cancelamentos"],
   [/\bmodifications\b/gi, "alterações"],
   [/\bremoved from report\b/gi, "removidas do relatório"],
   [/\bfirst to latest snapshot\b/gi, "do primeiro ao relatório mais recente"],
-  [/\bsnapshot\b/gi, "relatório"],
   [/\bsnapshots\b/gi, "relatórios"],
+  [/\bsnapshot\b/gi, "relatório"],
   [/\bsold-out days?\b/gi, "dias esgotados"],
   [/\bcovered stay dates\b/gi, "datas de estadia cobertas"],
   [/\brooms sold\b/gi, "quartos vendidos"],
-  [/\brooms\b/gi, "quartos"],
-  [/\bdays\b/gi, "dias"],
-  [/\bnights\b/gi, "noites"],
   [/\bD-(\d+)\b/g, "$1 dias antes"],
+  [/Room type '([^']+)' is duplicated\./g, "O tipo de quarto '$1' está duplicado."],
+  [/([^.]*) must have a positive whole-number quantity\./g, "$1 deve ter uma quantidade inteira positiva."],
+  [/Room-type quantities add up to (\d+), but Number of rooms is (\d+)\./g, "As quantidades dos tipos de quarto somam $1, mas o número de quartos é $2."],
+  [/Remove (.+)/g, "Remover $1"],
 ];
 
 const monthReplacements: Array<[RegExp, string]> = [
@@ -251,8 +255,8 @@ const monthReplacements: Array<[RegExp, string]> = [
   [/\bApril\b/g, "Abril"], [/\bMay\b/g, "Maio"], [/\bJune\b/g, "Junho"],
   [/\bJuly\b/g, "Julho"], [/\bAugust\b/g, "Agosto"], [/\bSeptember\b/g, "Setembro"],
   [/\bOctober\b/g, "Outubro"], [/\bNovember\b/g, "Novembro"], [/\bDecember\b/g, "Dezembro"],
-  [/\bMay(?=\s+\d{4})/g, "Mai"], [/\bAug(?=\s+\d{4})/g, "Ago"], [/\bSep(?=\s+\d{4})/g, "Set"],
-  [/\bOct(?=\s+\d{4})/g, "Out"], [/\bDec(?=\s+\d{4})/g, "Dez"], [/\bApr(?=\s+\d{4})/g, "Abr"],
+  [/\bApr(?=\s+\d{4})/g, "Abr"], [/\bMay(?=\s+\d{4})/g, "Mai"], [/\bAug(?=\s+\d{4})/g, "Ago"],
+  [/\bSep(?=\s+\d{4})/g, "Set"], [/\bOct(?=\s+\d{4})/g, "Out"], [/\bDec(?=\s+\d{4})/g, "Dez"],
   [/\bSun\b/g, "Dom"], [/\bMon\b/g, "Seg"], [/\bTue\b/g, "Ter"], [/\bWed\b/g, "Qua"],
   [/\bThu\b/g, "Qui"], [/\bFri\b/g, "Sex"], [/\bSat\b/g, "Sáb"],
 ];
@@ -272,7 +276,6 @@ export function translateUiText(value: string) {
   let translated = trimmed;
   for (const [pattern, replacement] of monthReplacements) translated = translated.replace(pattern, replacement);
   for (const [pattern, replacement] of replacements) translated = translated.replace(pattern, replacement);
-
   return translated === trimmed ? value : preserveWhitespace(value, translated);
 }
 
