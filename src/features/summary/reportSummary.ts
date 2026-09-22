@@ -10,7 +10,7 @@ export interface ReportSummaryMonth {
   endDate: IsoDate;
   current: DashboardMetrics;
   baseline: DashboardMetrics;
-  occupancyDeltaPoints: number | null;
+  occupancyDeltaPercent: number | null;
   adrDeltaCents: number | null;
   roomRevenueDeltaCents: number;
   observation: string;
@@ -53,16 +53,24 @@ function monthRanges(filters: DashboardFilters) {
   }));
 }
 
+export function occupancyRelativeChange(current: number | null, baseline: number | null): number | null {
+  if (current === null || baseline === null || baseline === 0) return null;
+  return ((current - baseline) / Math.abs(baseline)) * 100;
+}
+
 function observation(
   endDate: IsoDate,
   baselineAsOf: IsoDate,
-  occupancyDeltaPoints: number | null,
+  baselineOccupancy: number | null,
+  currentOccupancy: number | null,
+  occupancyDeltaPercent: number | null,
   roomRevenueDeltaCents: number,
 ) {
   if (endDate < baselineAsOf) return "Closed";
-  if ((occupancyDeltaPoints ?? 0) === 0 && roomRevenueDeltaCents === 0) return "No change";
-  if ((occupancyDeltaPoints ?? 0) === 0) return "Occupancy unchanged";
-  return `${occupancyDeltaPoints! > 0 ? "+" : ""}${occupancyDeltaPoints!.toFixed(1)} pp occupancy`;
+  if (baselineOccupancy === currentOccupancy && roomRevenueDeltaCents === 0) return "No change";
+  if (baselineOccupancy === currentOccupancy) return "Occupancy unchanged";
+  if (occupancyDeltaPercent === null) return "Occupancy changed (no % base)";
+  return `${occupancyDeltaPercent > 0 ? "+" : ""}${occupancyDeltaPercent.toFixed(1)}% occupancy`;
 }
 
 export function calculateReportSummary(
@@ -79,9 +87,7 @@ export function calculateReportSummary(
     const monthFilters: DashboardFilters = { ...filters, startDate, endDate };
     const baseline = calculateMetrics(property, baselineReservations, monthFilters);
     const current = calculateMetrics(property, currentReservations, monthFilters);
-    const occupancyDeltaPoints = baseline.occupancy === null || current.occupancy === null
-      ? null
-      : (current.occupancy - baseline.occupancy) * 100;
+    const occupancyDeltaPercent = occupancyRelativeChange(current.occupancy, baseline.occupancy);
     const adrDeltaCents = baseline.adrCents === null || current.adrCents === null
       ? null
       : current.adrCents - baseline.adrCents;
@@ -93,10 +99,17 @@ export function calculateReportSummary(
       endDate,
       current,
       baseline,
-      occupancyDeltaPoints,
+      occupancyDeltaPercent,
       adrDeltaCents,
       roomRevenueDeltaCents,
-      observation: observation(endDate, baselineAsOf, occupancyDeltaPoints, roomRevenueDeltaCents),
+      observation: observation(
+        endDate,
+        baselineAsOf,
+        baseline.occupancy,
+        current.occupancy,
+        occupancyDeltaPercent,
+        roomRevenueDeltaCents,
+      ),
     };
   });
 
