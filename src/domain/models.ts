@@ -69,7 +69,7 @@ export interface ImportIssue {
 
 export interface ImportPreview {
   propertyId: string;
-  source: "Amenitiz";
+  source: "Amenitiz" | "LegacyHistorical";
   filename: string;
   dataAsOf: IsoDate;
   fileHash: string;
