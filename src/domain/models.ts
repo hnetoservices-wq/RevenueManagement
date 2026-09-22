@@ -12,12 +12,23 @@ export interface RoomType {
   activeTo: IsoDate | null;
 }
 
+export interface InventoryClosure {
+  id: string;
+  propertyId: string;
+  roomTypeId: string;
+  startDate: IsoDate;
+  endDate: IsoDate;
+  quantity: number;
+  reason: string;
+}
+
 export interface Property {
   id: string;
   name: string;
   currency: string;
   timezone: string;
   roomTypes: RoomType[];
+  inventoryClosures?: InventoryClosure[];
 }
 
 export interface RoomAllocation {
@@ -102,6 +113,7 @@ export interface DailyPerformance {
   date: IsoDate;
   roomNightsSold: number;
   availableRoomNights: number;
+  unavailableRoomNights: number;
   occupancy: number | null;
   roomRevenueCents: number;
   adrCents: number | null;
@@ -125,6 +137,7 @@ export interface DashboardMetrics {
   touristTaxCents: number;
   roomNightsSold: number;
   availableRoomNights: number;
+  unavailableRoomNights: number;
   reservations: number;
   averageLeadTime: number | null;
   medianLeadTime: number | null;
