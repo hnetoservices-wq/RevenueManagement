@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Historical snapshot reservation queries for both SQLite and browser preview repositories.
+- Snapshot-to-snapshot pickup calculations for room nights, occupancy, revenue, reservations, ADR, and RevPAR.
+- Snapshot comparison controls and pickup KPI cards on the Imports page.
+- Automated pickup regression coverage.
+
 ## 0.1.0 - 2026-09-21
 
 ### Added
