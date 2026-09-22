@@ -1,10 +1,22 @@
 import { addDays, differenceInCalendarDays, format } from "date-fns";
-import { calculateMetrics } from "../../domain/analytics";
+import { calculateMetrics, coverageQuality } from "../../domain/analytics";
 import { enumerateDates, parseIsoDate, shiftYear, toIsoDate } from "../../domain/dates";
-import type { DailyPerformance, DashboardFilters, DashboardMetrics, IsoDate, Property, Reservation } from "../../domain/models";
+import type { CoverageQuality, DailyPerformance, DashboardFilters, DashboardMetrics, IsoDate, Property, Reservation } from "../../domain/models";
 
 export type PerformanceComparisonMode = "previous_year" | "previous_period" | "none";
 export type PerformanceGranularity = "Daily" | "Weekly" | "Monthly";
+
+export interface PerformanceCoverage {
+  availabilityStartDate: IsoDate | null;
+  requestedStartDate: IsoDate;
+  requestedEndDate: IsoDate;
+  effectiveStartDate: IsoDate | null;
+  effectiveEndDate: IsoDate | null;
+  totalDays: number;
+  coveredDays: number;
+  coverage: number;
+  quality: CoverageQuality;
+}
 
 export interface PerformanceTrendPoint {
   label: string;
@@ -24,6 +36,10 @@ export interface PerformanceMonthlyRow {
   comparisonEndDate: IsoDate | null;
   current: DashboardMetrics;
   comparison: DashboardMetrics | null;
+  currentCoverage: PerformanceCoverage;
+  comparisonCoverage: PerformanceCoverage | null;
+  currentReliable: boolean;
+  comparisonReliable: boolean;
 }
 
 export interface PerformanceAnalysis {
@@ -35,7 +51,16 @@ export interface PerformanceAnalysis {
   granularity: PerformanceGranularity;
   trend: PerformanceTrendPoint[];
   monthly: PerformanceMonthlyRow[];
+  dataAvailabilityStartDate: IsoDate | null;
+  currentCoverage: PerformanceCoverage;
+  comparisonCoverage: PerformanceCoverage | null;
+  currentReliable: boolean;
+  comparisonReliable: boolean;
+  reliableCoverageThreshold: number;
 }
+
+const RELIABLE_COVERAGE_THRESHOLD = 0.8;
+const PARTIAL_COVERAGE_THRESHOLD = 0.5;
 
 function selectedDayCount(filters: DashboardFilters): number {
   return differenceInCalendarDays(parseIsoDate(filters.endDate), parseIsoDate(filters.startDate)) + 1;
@@ -55,6 +80,55 @@ export function getPerformanceComparisonFilters(
   const endDate = shiftForComparison(filters.endDate, filters, mode);
   if (!startDate || !endDate) return null;
   return { ...filters, startDate, endDate };
+}
+
+export function getDataAvailabilityStart(reservations: Reservation[]): IsoDate | null {
+  const dates = reservations
+    .filter((reservation) => reservation.status !== "ignored")
+    .map((reservation) => reservation.checkIn)
+    .sort();
+  return dates[0] ?? null;
+}
+
+export function getPerformanceCoverage(
+  filters: DashboardFilters,
+  availabilityStartDate: IsoDate | null,
+): PerformanceCoverage {
+  const totalDays = Math.max(0, selectedDayCount(filters));
+  if (!availabilityStartDate || totalDays === 0 || availabilityStartDate > filters.endDate) {
+    return {
+      availabilityStartDate,
+      requestedStartDate: filters.startDate,
+      requestedEndDate: filters.endDate,
+      effectiveStartDate: null,
+      effectiveEndDate: null,
+      totalDays,
+      coveredDays: 0,
+      coverage: 0,
+      quality: "insufficient",
+    };
+  }
+
+  const effectiveStartDate = availabilityStartDate > filters.startDate ? availabilityStartDate : filters.startDate;
+  const coveredDays = differenceInCalendarDays(parseIsoDate(filters.endDate), parseIsoDate(effectiveStartDate)) + 1;
+  const coverage = totalDays ? Math.max(0, Math.min(1, coveredDays / totalDays)) : 0;
+  return {
+    availabilityStartDate,
+    requestedStartDate: filters.startDate,
+    requestedEndDate: filters.endDate,
+    effectiveStartDate,
+    effectiveEndDate: filters.endDate,
+    totalDays,
+    coveredDays,
+    coverage,
+    quality: coverageQuality(coverage, RELIABLE_COVERAGE_THRESHOLD, PARTIAL_COVERAGE_THRESHOLD),
+  };
+}
+
+function effectiveFilters(filters: DashboardFilters, coverage: PerformanceCoverage): DashboardFilters {
+  return coverage.effectiveStartDate && coverage.effectiveEndDate
+    ? { ...filters, startDate: coverage.effectiveStartDate, endDate: coverage.effectiveEndDate }
+    : filters;
 }
 
 function aggregateDaily(days: DailyPerformance[]) {
@@ -106,7 +180,10 @@ function buildWeeklyTrend(
       return comparisonDay ? [comparisonDay] : [];
     });
     const currentAggregate = aggregateDaily(currentDays);
-    const comparisonAggregate = comparisonDays.length ? aggregateDaily(comparisonDays) : null;
+    const comparisonCoverage = currentDays.length ? comparisonDays.length / currentDays.length : 0;
+    const comparisonAggregate = comparisonCoverage >= RELIABLE_COVERAGE_THRESHOLD
+      ? aggregateDaily(comparisonDays)
+      : null;
     result.push({
       label: currentDays.length === 1
         ? format(parseIsoDate(currentDays[0].date), "dd MMM")
@@ -127,6 +204,7 @@ function buildMonthlyRows(
   reservations: Reservation[],
   filters: DashboardFilters,
   mode: PerformanceComparisonMode,
+  availabilityStartDate: IsoDate | null,
 ): PerformanceMonthlyRow[] {
   const monthDates = new Map<string, IsoDate[]>();
   for (const date of enumerateDates(filters.startDate, filters.endDate)) {
@@ -140,19 +218,32 @@ function buildMonthlyRows(
     const startDate = dates[0];
     const endDate = dates.at(-1)!;
     const currentFilters: DashboardFilters = { ...filters, startDate, endDate };
+    const currentCoverage = getPerformanceCoverage(currentFilters, availabilityStartDate);
+    const currentMetrics = calculateMetrics(property, reservations, effectiveFilters(currentFilters, currentCoverage));
     const comparisonStartDate = shiftForComparison(startDate, filters, mode);
     const comparisonEndDate = shiftForComparison(endDate, filters, mode);
     const comparisonFilters = comparisonStartDate && comparisonEndDate
       ? { ...filters, startDate: comparisonStartDate, endDate: comparisonEndDate }
       : null;
+    const comparisonCoverage = comparisonFilters
+      ? getPerformanceCoverage(comparisonFilters, availabilityStartDate)
+      : null;
+    const comparisonMetrics = comparisonFilters && comparisonCoverage?.coveredDays
+      ? calculateMetrics(property, reservations, effectiveFilters(comparisonFilters, comparisonCoverage))
+      : null;
+
     return {
       label: format(parseIsoDate(startDate), "MMM yyyy"),
       startDate,
       endDate,
       comparisonStartDate,
       comparisonEndDate,
-      current: calculateMetrics(property, reservations, currentFilters),
-      comparison: comparisonFilters ? calculateMetrics(property, reservations, comparisonFilters) : null,
+      current: currentMetrics,
+      comparison: comparisonMetrics,
+      currentCoverage,
+      comparisonCoverage,
+      currentReliable: currentCoverage.coverage >= RELIABLE_COVERAGE_THRESHOLD,
+      comparisonReliable: Boolean(comparisonCoverage && comparisonCoverage.coverage >= RELIABLE_COVERAGE_THRESHOLD),
     };
   });
 }
@@ -160,12 +251,12 @@ function buildMonthlyRows(
 function buildMonthlyTrend(rows: PerformanceMonthlyRow[]): PerformanceTrendPoint[] {
   return rows.map((row) => ({
     label: row.label,
-    currentOccupancy: row.current.occupancy,
-    comparisonOccupancy: row.comparison?.occupancy ?? null,
-    currentAdrCents: row.current.adrCents,
-    comparisonAdrCents: row.comparison?.adrCents ?? null,
-    currentRevparCents: row.current.revparCents,
-    comparisonRevparCents: row.comparison?.revparCents ?? null,
+    currentOccupancy: row.currentReliable ? row.current.occupancy : null,
+    comparisonOccupancy: row.comparisonReliable ? row.comparison?.occupancy ?? null : null,
+    currentAdrCents: row.currentReliable ? row.current.adrCents : null,
+    comparisonAdrCents: row.comparisonReliable ? row.comparison?.adrCents ?? null : null,
+    currentRevparCents: row.currentReliable ? row.current.revparCents : null,
+    comparisonRevparCents: row.comparisonReliable ? row.comparison?.revparCents ?? null : null,
   }));
 }
 
@@ -175,10 +266,17 @@ export function calculatePerformanceAnalysis(
   filters: DashboardFilters,
   comparisonMode: PerformanceComparisonMode,
 ): PerformanceAnalysis {
-  const current = calculateMetrics(property, reservations, filters);
+  const dataAvailabilityStartDate = getDataAvailabilityStart(reservations);
+  const currentCoverage = getPerformanceCoverage(filters, dataAvailabilityStartDate);
+  const current = calculateMetrics(property, reservations, effectiveFilters(filters, currentCoverage));
   const comparisonFilters = getPerformanceComparisonFilters(filters, comparisonMode);
-  const comparison = comparisonFilters ? calculateMetrics(property, reservations, comparisonFilters) : null;
-  const monthly = buildMonthlyRows(property, reservations, filters, comparisonMode);
+  const comparisonCoverage = comparisonFilters
+    ? getPerformanceCoverage(comparisonFilters, dataAvailabilityStartDate)
+    : null;
+  const comparison = comparisonFilters && comparisonCoverage?.coveredDays
+    ? calculateMetrics(property, reservations, effectiveFilters(comparisonFilters, comparisonCoverage))
+    : null;
+  const monthly = buildMonthlyRows(property, reservations, filters, comparisonMode, dataAvailabilityStartDate);
   const days = selectedDayCount(filters);
   const granularity: PerformanceGranularity = days <= 45 ? "Daily" : days <= 180 ? "Weekly" : "Monthly";
   const trend = granularity === "Daily"
@@ -196,5 +294,11 @@ export function calculatePerformanceAnalysis(
     granularity,
     trend,
     monthly,
+    dataAvailabilityStartDate,
+    currentCoverage,
+    comparisonCoverage,
+    currentReliable: currentCoverage.coverage >= RELIABLE_COVERAGE_THRESHOLD,
+    comparisonReliable: Boolean(comparisonCoverage && comparisonCoverage.coverage >= RELIABLE_COVERAGE_THRESHOLD),
+    reliableCoverageThreshold: RELIABLE_COVERAGE_THRESHOLD,
   };
 }
