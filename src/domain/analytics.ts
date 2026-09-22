@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, max, min } from "date-fns";
-import { enumerateDates, nightsBetween, parseIsoDate, shiftYear, toIsoDate } from "./dates";
+import { enumerateDates, nightsBetween, parseIsoDate, shiftYear } from "./dates";
 import type {
   DashboardFilters,
   DashboardMetrics,
@@ -7,6 +7,7 @@ import type {
   IsoDate,
   Property,
   Reservation,
+  SnapshotComparisonResult,
 } from "./models";
 
 function average(values: number[]): number | null {
@@ -142,6 +143,39 @@ export function calculateDashboard(
   return {
     current: calculateMetrics(property, reservations, filters),
     previousYear: calculateMetrics(property, reservations, previousFilters),
+  };
+}
+
+export function calculateSnapshotComparison(
+  property: Property,
+  baselineReservations: Reservation[],
+  currentReservations: Reservation[],
+  filters: DashboardFilters,
+): SnapshotComparisonResult {
+  const baseline = calculateMetrics(property, baselineReservations, filters);
+  const current = calculateMetrics(property, currentReservations, filters);
+
+  return {
+    baseline,
+    current,
+    pickup: {
+      roomNightsSold: current.roomNightsSold - baseline.roomNightsSold,
+      roomRevenueCents: current.roomRevenueCents - baseline.roomRevenueCents,
+      totalRevenueCents: current.totalRevenueCents - baseline.totalRevenueCents,
+      reservations: current.reservations - baseline.reservations,
+      occupancyPercentagePoints:
+        current.occupancy === null || baseline.occupancy === null
+          ? null
+          : (current.occupancy - baseline.occupancy) * 100,
+      adrCents:
+        current.adrCents === null || baseline.adrCents === null
+          ? null
+          : current.adrCents - baseline.adrCents,
+      revparCents:
+        current.revparCents === null || baseline.revparCents === null
+          ? null
+          : current.revparCents - baseline.revparCents,
+    },
   };
 }
 
