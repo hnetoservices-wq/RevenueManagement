@@ -30,7 +30,10 @@ export function analysisChannels(reservations: Reservation[]): string[] {
 }
 
 export function analysisRoomTypes(property: Property): string[] {
-  return property.roomTypes.map((roomType) => roomType.canonicalName).sort((a, b) => a.localeCompare(b));
+  return property.roomTypes
+    .filter((roomType) => roomType.inventoryCount > 0 && roomType.activeTo === null)
+    .map((roomType) => roomType.canonicalName)
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function scaled(value: number, ratio: number): number {
