@@ -80,7 +80,22 @@ An occupancy percentage-point delta is only calculated when both the current per
 
 If no prior-year snapshots exist around the equivalent lead dates, the application reports that prior-year booking-position coverage is unavailable rather than substituting final/latest data.
 
+## Performance comparison coverage
+
+Performance comparisons distinguish unavailable history from genuine zero performance. The current data-availability boundary is inferred conservatively from the earliest non-ignored stay date present in the latest imported reservation dataset.
+
+For a requested selected or comparison period:
+
+1. Dates before the inferred availability boundary are treated as **unknown**, never as zero occupancy or zero revenue.
+2. Metrics for a partially covered range are calculated only over the covered dates.
+3. Aggregate comparison deltas require at least **80%** date coverage. Below that threshold the application shows `Insufficient comparison data` instead of a percentage or percentage-point delta.
+4. Daily comparison points are shown only when the equivalent comparison date is covered.
+5. Weekly and monthly comparison points require at least 80% of their mapped dates to be covered; otherwise the comparison segment is left blank.
+6. The monthly Performance table exposes comparison coverage so partial historical periods are visible rather than silently interpreted as full periods.
+
+This boundary is intentionally conservative and can move earlier when legacy historical data is imported later. Until then, missing historical dates are unknown rather than assumed to represent zero demand or revenue.
+
 ## Comparisons
 
-- Revenue, ADR, RevPAR, counts, lead time, and LOS show absolute and relative change where the comparison denominator is non-zero.
+- Revenue, ADR, RevPAR, counts, lead time, and LOS show absolute and relative change where the comparison denominator is non-zero and the comparison period has sufficient coverage.
 - Occupancy and cancellation rate show percentage-point change. Relative rate change may be shown secondarily.
