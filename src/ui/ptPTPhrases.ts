@@ -94,7 +94,7 @@ const fragments: Array<[RegExp, string]> = [
   [/^Import (\d+) reservations$/i, "Importar $1 reservas"],
   [/^(\d+) reservations imported successfully\.$/i, "$1 reservas importadas com sucesso."],
   [/^Calculating booking pace across (\d+) snapshots…$/i, "A calcular o ritmo de reservas em $1 relatórios…"],
-]);
+];
 
 function translate(value: string) {
   const trimmed = value.trim();
