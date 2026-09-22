@@ -27,6 +27,26 @@ export class BrowserRepository implements Repository {
     return structuredClone(this.state.properties);
   }
 
+  async saveProperty(property: Property): Promise<Property> {
+    const existingIndex = this.state.properties.findIndex((item) => item.id === property.id);
+    if (existingIndex === -1) {
+      this.state.properties.push(structuredClone(property));
+    } else {
+      const existing = this.state.properties[existingIndex];
+      const suppliedIds = new Set(property.roomTypes.map((room) => room.id));
+      const retired = existing.roomTypes
+        .filter((room) => !suppliedIds.has(room.id))
+        .map((room) => ({ ...room, inventoryCount: 0 }));
+      this.state.properties[existingIndex] = structuredClone({
+        ...property,
+        roomTypes: [...property.roomTypes, ...retired],
+      });
+    }
+    this.state.properties.sort((a, b) => a.name.localeCompare(b.name));
+    this.persist();
+    return structuredClone(property);
+  }
+
   async listImports(propertyId: string): Promise<ImportSnapshotSummary[]> {
     return this.state.snapshots
       .filter((snapshot) => snapshot.summary.propertyId === propertyId)
