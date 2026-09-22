@@ -13,7 +13,9 @@
 - Coverage-quality rules: reliable at 80%+, partial at 50–79.9%, and insufficient below 50%.
 - Same-time-last-year lead-time pace comparison using equivalent prior-year stay dates and D-points.
 - Coverage-gated STLY occupancy percentage-point deltas that require reliable coverage in both periods.
-- Automated pickup, lead-time reconstruction, coverage-quality, and STLY pace regression coverage.
+- Pickup decomposition into new bookings, cancellations, modifications, and reservations removed from a later report.
+- Reservation-level pickup drilldown with changed fields, before/after stay dates, room-night delta, and room-revenue delta.
+- Automated pickup, decomposition, lead-time reconstruction, coverage-quality, and STLY pace regression coverage.
 
 ### Fixed
 
