@@ -22,6 +22,16 @@ function propertyWithoutClosures(property: Property): Property {
   return stored;
 }
 
+function mergeHistoricalFinal(current: Reservation[], historical: Reservation[]): Reservation[] {
+  if (!historical.length) return structuredClone(current);
+  const coverageStart = historical.reduce((min, reservation) => reservation.checkIn < min ? reservation.checkIn : min, historical[0].checkIn);
+  const coverageEndExclusive = historical.reduce((max, reservation) => reservation.checkOut > max ? reservation.checkOut : max, historical[0].checkOut);
+  const outsideHistoricalCoverage = current.filter(
+    (reservation) => reservation.checkOut <= coverageStart || reservation.checkIn >= coverageEndExclusive,
+  );
+  return structuredClone([...historical, ...outsideHistoricalCoverage]);
+}
+
 export class BrowserRepository implements Repository {
   private state: BrowserState = { properties: [propertyWithoutClosures(MALMERENDAS_PROPERTY)], snapshots: [], inventoryClosures: [] };
 
@@ -86,21 +96,30 @@ export class BrowserRepository implements Repository {
 
   async listImports(propertyId: string): Promise<ImportSnapshotSummary[]> {
     return this.state.snapshots
-      .filter((snapshot) => snapshot.summary.propertyId === propertyId)
+      .filter((snapshot) => snapshot.summary.propertyId === propertyId && snapshot.summary.source === "Amenitiz")
       .map((snapshot) => structuredClone(snapshot.summary))
       .sort((a, b) => b.dataAsOf.localeCompare(a.dataAsOf) || b.importedAt.localeCompare(a.importedAt));
   }
 
+  async listHistoricalReservations(propertyId: string): Promise<Reservation[]> {
+    const historical = this.state.snapshots
+      .filter((item) => item.summary.propertyId === propertyId && item.summary.source === "LegacyHistorical")
+      .sort((a, b) => b.summary.importedAt.localeCompare(a.summary.importedAt));
+    return historical.length ? structuredClone(historical[0].reservations) : [];
+  }
+
   async listCurrentReservations(propertyId: string): Promise<Reservation[]> {
     const snapshots = this.state.snapshots
-      .filter((item) => item.summary.propertyId === propertyId)
+      .filter((item) => item.summary.propertyId === propertyId && item.summary.source === "Amenitiz")
       .sort((a, b) => b.summary.dataAsOf.localeCompare(a.summary.dataAsOf) || b.summary.importedAt.localeCompare(a.summary.importedAt));
-    return snapshots.length ? structuredClone(snapshots[0].reservations) : [];
+    const current = snapshots.length ? snapshots[0].reservations : [];
+    const historical = await this.listHistoricalReservations(propertyId);
+    return mergeHistoricalFinal(current, historical);
   }
 
   async listSnapshotReservations(propertyId: string, snapshotId: string): Promise<Reservation[]> {
     const snapshot = this.state.snapshots.find(
-      (item) => item.summary.propertyId === propertyId && item.summary.id === snapshotId,
+      (item) => item.summary.propertyId === propertyId && item.summary.id === snapshotId && item.summary.source === "Amenitiz",
     );
     return snapshot ? structuredClone(snapshot.reservations) : [];
   }
