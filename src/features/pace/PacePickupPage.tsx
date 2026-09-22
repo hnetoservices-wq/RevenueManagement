@@ -3,19 +3,20 @@ import {
   Bar,
   CartesianGrid,
   ComposedChart,
-  Legend,
   Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { calculateLeadTimeCurve, calculateMetrics } from "../../domain/analytics";
+import { calculateLeadTimePaceComparison, calculateMetrics } from "../../domain/analytics";
 import type {
+  CoverageQuality,
   DashboardFilters,
   ImportSnapshotSummary,
   IsoDate,
   LeadTimeCurvePoint,
+  LeadTimePaceComparisonResult,
   Property,
   Reservation,
   SnapshotReservationSet,
@@ -71,6 +72,16 @@ function tone(value: number | null) {
   return value === null || value === 0 ? "neutral" : value > 0 ? "positive" : "negative";
 }
 
+function qualityLabel(quality: CoverageQuality) {
+  if (quality === "reliable") return "Reliable";
+  if (quality === "partial") return "Partial";
+  return "Insufficient";
+}
+
+function qualityClass(quality: CoverageQuality) {
+  return `coverage-${quality}`;
+}
+
 function DateFilters({ filters, setFilters }: { filters: DashboardFilters; setFilters: (filters: DashboardFilters) => void }) {
   return <div className="filters"><label>From<input type="date" value={filters.startDate} onChange={(event) => setFilters({ ...filters, startDate: event.target.value as IsoDate })} /></label><label>To<input type="date" value={filters.endDate} onChange={(event) => setFilters({ ...filters, endDate: event.target.value as IsoDate })} /></label><label>Revenue<select value={filters.revenueBasis} onChange={(event) => setFilters({ ...filters, revenueBasis: event.target.value as DashboardFilters["revenueBasis"] })}><option value="inclusive">Incl. tax</option><option value="exclusive">Excl. tax</option></select></label></div>;
 }
@@ -78,6 +89,7 @@ function DateFilters({ filters, setFilters }: { filters: DashboardFilters; setFi
 export function PacePickupPage({ imports, property, filters, setFilters, loadSnapshotReservations }: Props) {
   const [points, setPoints] = useState<PacePoint[]>([]);
   const [leadCurve, setLeadCurve] = useState<LeadTimeCurvePoint[]>([]);
+  const [paceComparison, setPaceComparison] = useState<LeadTimePaceComparisonResult | null>(null);
   const [maxCurveLagDays, setMaxCurveLagDays] = useState(14);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +103,7 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
     if (!orderedImports.length) {
       setPoints([]);
       setLeadCurve([]);
+      setPaceComparison(null);
       return;
     }
     let cancelled = false;
@@ -128,10 +141,11 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
         dataAsOf: snapshot.dataAsOf,
         reservations,
       }));
-      const curve = calculateLeadTimeCurve(property, snapshotSets, filters);
+      const comparison = calculateLeadTimePaceComparison(property, snapshotSets, filters);
       setPoints(next);
-      setLeadCurve(curve.points);
-      setMaxCurveLagDays(curve.maxSnapshotLagDays);
+      setLeadCurve(comparison.current.points);
+      setPaceComparison(comparison);
+      setMaxCurveLagDays(comparison.current.maxSnapshotLagDays);
     }).catch((cause) => {
       if (!cancelled) setError(`Could not build pace timeline: ${String(cause)}`);
     }).finally(() => {
@@ -146,12 +160,27 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
   const totalRoomNightsPickup = latest && first ? latest.roomNights - first.roomNights : null;
   const totalRevenuePickup = latest && first ? latest.roomRevenueCents - first.roomRevenueCents : null;
   const totalOccupancyPickup = latest && first ? latest.occupancy - first.occupancy : null;
-  const leadChartData = leadCurve.map((point) => ({
-    ...point,
-    occupancyPct: point.occupancy === null ? null : point.occupancy * 100,
-    coveragePct: point.coverage * 100,
-  }));
-  const coveredCurvePoints = leadCurve.filter((point) => point.coveredStayDates > 0).length;
+  const reliableThreshold = paceComparison?.reliableCoverageThreshold ?? 0.8;
+  const partialThreshold = paceComparison?.partialCoverageThreshold ?? 0.5;
+  const currentYear = filters.startDate.slice(0, 4) === filters.endDate.slice(0, 4) ? filters.startDate.slice(0, 4) : "Current";
+  const previousYear = /^\d{4}$/.test(currentYear) ? String(Number(currentYear) - 1) : "Prior year";
+  const comparisonPoints = paceComparison?.points ?? [];
+  const currentReliablePoints = comparisonPoints.filter((point) => point.currentQuality === "reliable").length;
+  const currentPartialPoints = comparisonPoints.filter((point) => point.currentQuality === "partial").length;
+  const previousReliablePoints = comparisonPoints.filter((point) => point.previousYearQuality === "reliable").length;
+  const previousPartialPoints = comparisonPoints.filter((point) => point.previousYearQuality === "partial").length;
+
+  const leadChartData = comparisonPoints.map((point) => {
+    const currentPct = point.current.occupancy === null ? null : point.current.occupancy * 100;
+    const previousPct = point.previousYear.occupancy === null ? null : point.previousYear.occupancy * 100;
+    return {
+      label: point.label,
+      currentReliablePct: point.currentQuality === "reliable" ? currentPct : null,
+      currentPartialPct: point.currentQuality === "partial" ? currentPct : null,
+      previousReliablePct: point.previousYearQuality === "reliable" ? previousPct : null,
+      previousPartialPct: point.previousYearQuality === "partial" ? previousPct : null,
+    };
+  });
 
   return <>
     <div className="page-heading">
@@ -170,7 +199,7 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
       <section className="pace-grid">
         <article className="panel pace-chart-panel">
           <div className="panel-heading"><div><h2>Booking position over time</h2><p>OTB occupancy and room revenue for the selected stay dates</p></div></div>
-          <div className="pace-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={points} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}><CartesianGrid stroke="#e7e9ed" vertical={false} /><XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis yAxisId="revenue" tickFormatter={(value) => `€${value}`} tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis yAxisId="occupancy" orientation="right" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb" }} formatter={(value, name) => name === "Occupancy" ? [`${Number(value).toFixed(1)}%`, name] : [`€${Number(value).toFixed(0)}`, name]} /><Legend /><Bar yAxisId="revenue" dataKey="roomRevenue" name="Room revenue" fill="#dbe9e6" radius={[4, 4, 0, 0]} /><Line yAxisId="occupancy" type="monotone" dataKey="occupancy" name="Occupancy" stroke="#1f6f68" strokeWidth={2.5} dot={{ r: 3 }} /></ComposedChart></ResponsiveContainer></div>
+          <div className="pace-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={points} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}><CartesianGrid stroke="#e7e9ed" vertical={false} /><XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis yAxisId="revenue" tickFormatter={(value) => `€${value}`} tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis yAxisId="occupancy" orientation="right" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb" }} formatter={(value, name) => name === "Occupancy" ? [`${Number(value).toFixed(1)}%`, name] : [`€${Number(value).toFixed(0)}`, name]} /><Bar yAxisId="revenue" dataKey="roomRevenue" name="Room revenue" fill="#dbe9e6" radius={[4, 4, 0, 0]} /><Line yAxisId="occupancy" type="monotone" dataKey="occupancy" name="Occupancy" stroke="#1f6f68" strokeWidth={2.5} dot={{ r: 3 }} /></ComposedChart></ResponsiveContainer></div>
         </article>
 
         <article className="panel pace-latest-panel">
@@ -180,11 +209,19 @@ export function PacePickupPage({ imports, property, filters, setFilters, loadSna
       </section>
 
       <article className="panel lead-time-panel">
-        <div className="lead-time-heading"><div><p className="eyebrow">Days before arrival</p><h2>Lead-time booking curve</h2><p>Each D-point uses the last observed snapshot at or before that lead day. Snapshots more than {maxCurveLagDays} days old are excluded.</p></div><div className="lead-coverage-summary"><strong>{coveredCurvePoints}/{leadCurve.length}</strong><span>D-points with coverage</span></div></div>
-        {coveredCurvePoints ? <>
-          <div className="lead-time-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={leadChartData} margin={{ top: 10, right: 15, left: 0, bottom: 0 }}><CartesianGrid stroke="#e7e9ed" vertical={false} /><XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb" }} formatter={(value, name) => [`${Number(value).toFixed(1)}%`, name]} /><Legend /><Line type="monotone" dataKey="occupancyPct" name="OTB occupancy" stroke="#1f6f68" strokeWidth={2.5} dot={{ r: 3 }} connectNulls={false} /><Line type="monotone" dataKey="coveragePct" name="Data coverage" stroke="#8b929a" strokeWidth={1.5} strokeDasharray="5 4" dot={{ r: 2 }} /></ComposedChart></ResponsiveContainer></div>
-          <div className="pace-table-wrap lead-time-table"><table><thead><tr><th>Lead point</th><th>OTB occupancy</th><th>Room nights</th><th>Room revenue</th><th>ADR</th><th>Coverage</th><th>Avg. snapshot lag</th></tr></thead><tbody>{leadCurve.map((point) => <tr key={point.daysBeforeArrival}><td><strong>{point.label}</strong></td><td>{percentage(point.occupancy)}</td><td>{point.coveredStayDates ? point.roomNightsSold : "—"}</td><td>{point.coveredStayDates ? money(point.roomRevenueCents, property.currency) : "—"}</td><td>{money(point.adrCents, property.currency)}</td><td className={point.coverage < 0.5 ? "coverage-low" : ""}>{percentage(point.coverage)} <small>({point.coveredStayDates}/{point.totalStayDates} dates)</small></td><td>{point.averageSnapshotLagDays === null ? "—" : `${point.averageSnapshotLagDays.toFixed(1)} days`}</td></tr>)}</tbody></table></div>
-        </> : <div className="lead-time-empty">No selected stay dates have a historical snapshot within {maxCurveLagDays} days of the lead-time targets. Try a later stay period or import older snapshots.</div>}
+        <div className="lead-time-heading"><div><p className="eyebrow">Days before arrival</p><h2>Lead-time pace vs same time last year</h2><p>Solid points require at least {Math.round(reliableThreshold * 100)}% stay-date coverage. Dashed points represent {Math.round(partialThreshold * 100)}–{Math.round(reliableThreshold * 100) - 1}% coverage. Lower coverage is not plotted. Snapshots more than {maxCurveLagDays} days old are excluded.</p></div><div className="lead-quality-summary"><div><strong>{currentReliablePoints}/{comparisonPoints.length}</strong><span>{currentYear} reliable</span><small>{currentPartialPoints} partial</small></div><div><strong>{previousReliablePoints}/{comparisonPoints.length}</strong><span>{previousYear} reliable</span><small>{previousPartialPoints} partial</small></div></div></div>
+
+        {comparisonPoints.length ? <>
+          <div className="pace-curve-legend"><span><i className="curve-current" />{currentYear}</span><span><i className="curve-previous" />{previousYear}</span><span><i className="curve-partial" />Dashed = partial coverage</span></div>
+          <div className="lead-time-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={leadChartData} margin={{ top: 10, right: 15, left: 0, bottom: 0 }}><CartesianGrid stroke="#e7e9ed" vertical={false} /><XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb" }} formatter={(value, name) => [`${Number(value).toFixed(1)}%`, name]} /><Line type="monotone" dataKey="previousReliablePct" name={`${previousYear} reliable`} stroke="#6f7f92" strokeWidth={2.2} dot={{ r: 3 }} connectNulls={false} /><Line type="monotone" dataKey="previousPartialPct" name={`${previousYear} partial`} stroke="#6f7f92" strokeWidth={1.7} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls={false} /><Line type="monotone" dataKey="currentReliablePct" name={`${currentYear} reliable`} stroke="#1f6f68" strokeWidth={2.7} dot={{ r: 3 }} connectNulls={false} /><Line type="monotone" dataKey="currentPartialPct" name={`${currentYear} partial`} stroke="#1f6f68" strokeWidth={1.8} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls={false} /></ComposedChart></ResponsiveContainer></div>
+
+          {previousReliablePoints + previousPartialPoints === 0 && <div className="stly-note">No prior-year historical booking-position coverage is available for this stay period. Import snapshots whose <strong>Data as of</strong> dates fall around the equivalent lead dates in {previousYear} to enable the STLY curve.</div>}
+
+          <div className="pace-table-wrap lead-time-table"><table><thead><tr><th>Lead point</th><th>{currentYear} OTB</th><th>{currentYear} coverage</th><th>{previousYear} OTB</th><th>{previousYear} coverage</th><th>vs STLY</th></tr></thead><tbody>{comparisonPoints.map((point) => <tr key={point.daysBeforeArrival}><td><strong>{point.label}</strong></td><td>{percentage(point.current.occupancy)}</td><td className={qualityClass(point.currentQuality)}>{percentage(point.current.coverage)} <small>({point.current.coveredStayDates}/{point.current.totalStayDates}) · {qualityLabel(point.currentQuality)}</small></td><td>{percentage(point.previousYear.occupancy)}</td><td className={qualityClass(point.previousYearQuality)}>{percentage(point.previousYear.coverage)} <small>({point.previousYear.coveredStayDates}/{point.previousYear.totalStayDates}) · {qualityLabel(point.previousYearQuality)}</small></td><td className={tone(point.occupancyPercentagePointChange)}>{point.occupancyPercentagePointChange === null ? "—" : `${signedNumber(point.occupancyPercentagePointChange, 1)} pp`}</td></tr>)}</tbody></table></div>
+
+          <div className="lead-diagnostic-heading"><strong>{currentYear} diagnostic detail</strong><span>Raw values remain visible even when coverage is too low to plot.</span></div>
+          <div className="pace-table-wrap lead-time-table lead-diagnostic-table"><table><thead><tr><th>Lead point</th><th>OTB occupancy</th><th>Room nights</th><th>Room revenue</th><th>ADR</th><th>Coverage</th><th>Avg. snapshot lag</th></tr></thead><tbody>{leadCurve.map((point, index) => { const quality = comparisonPoints[index]?.currentQuality ?? "insufficient"; return <tr key={point.daysBeforeArrival}><td><strong>{point.label}</strong></td><td>{percentage(point.occupancy)}</td><td>{point.coveredStayDates ? point.roomNightsSold : "—"}</td><td>{point.coveredStayDates ? money(point.roomRevenueCents, property.currency) : "—"}</td><td>{money(point.adrCents, property.currency)}</td><td className={qualityClass(quality)}>{percentage(point.coverage)} <small>({point.coveredStayDates}/{point.totalStayDates}) · {qualityLabel(quality)}</small></td><td>{point.averageSnapshotLagDays === null ? "—" : `${point.averageSnapshotLagDays.toFixed(1)} days`}</td></tr>; })}</tbody></table></div>
+        </> : <div className="lead-time-empty">No lead-time points could be calculated for the selected stay period.</div>}
       </article>
 
       <article className="panel pace-table-panel">
