@@ -42,6 +42,16 @@ function inventoryForDate(property: Property, date: IsoDate): number {
   }, 0);
 }
 
+function latestSnapshotAtOrBefore(
+  orderedSnapshots: SnapshotReservationSet[],
+  targetDate: IsoDate,
+): SnapshotReservationSet | null {
+  for (let index = orderedSnapshots.length - 1; index >= 0; index -= 1) {
+    if (orderedSnapshots[index].dataAsOf <= targetDate) return orderedSnapshots[index];
+  }
+  return null;
+}
+
 export function calculateMetrics(
   property: Property,
   reservations: Reservation[],
@@ -201,7 +211,7 @@ export function calculateLeadTimeCurve(
     for (const stayDate of stayDates) {
       const targetDate = addDays(parseIsoDate(stayDate), -daysBeforeArrival);
       const targetIso = toIsoDate(targetDate);
-      const snapshot = orderedSnapshots.findLast((candidate) => candidate.dataAsOf <= targetIso);
+      const snapshot = latestSnapshotAtOrBefore(orderedSnapshots, targetIso);
       if (!snapshot) continue;
 
       const lagDays = differenceInCalendarDays(targetDate, parseIsoDate(snapshot.dataAsOf));
