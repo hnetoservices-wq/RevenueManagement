@@ -179,6 +179,7 @@ export interface LeadTimeCurvePoint {
 
 export interface LeadTimeCurveResult {
   points: LeadTimeCurvePoint[];
+  maxSnapshotLagDays: number;
 }
 
 export interface LeadTimePaceComparisonPoint {
@@ -188,13 +189,15 @@ export interface LeadTimePaceComparisonPoint {
   previousYear: LeadTimeCurvePoint;
   currentQuality: CoverageQuality;
   previousYearQuality: CoverageQuality;
-  occupancyPercentagePoints: number | null;
+  occupancyPercentagePointChange: number | null;
 }
 
 export interface LeadTimePaceComparisonResult {
   current: LeadTimeCurveResult;
   previousYear: LeadTimeCurveResult;
   points: LeadTimePaceComparisonPoint[];
+  reliableCoverageThreshold: number;
+  partialCoverageThreshold: number;
 }
 
 export type PickupChangeType = "new" | "cancelled" | "modified" | "removed";
