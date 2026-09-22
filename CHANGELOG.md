@@ -32,6 +32,11 @@
 - Booking Activity workspace under Revenue for booking-date production: bookings created, room nights and room revenue booked, booked ADR, LOS, lead time, booking-production trend, stay-month allocation, channel contribution, and exact room-type room-night mix.
 - Conservative booking-date coverage rules that treat dates outside the observed booking-date range as unknown rather than zero and suppress unreliable historical comparison deltas.
 - Booking Activity regression coverage for full-value attribution by booking date, cross-month stay allocation, channel/room-type reconciliation, incomplete prior-year history, and last-observed-date defaults.
+- Multi-property Settings page with editable property name, currency, timezone, declared total-room inventory, and exact Amenitiz room-type names and quantities.
+- Property setup validation requiring room-type quantities to reconcile exactly to the declared number of rooms and room names to be unique.
+- Native and browser property persistence so each property keeps an independent room configuration and import history.
+- Executive Report Summary page that defaults to previous report versus latest report, with monthly Occupancy / ADR / room-revenue movement, snapshot pickup KPIs, pickup decomposition, and channel position.
+- Report Summary regression coverage for monthly closed-period handling, pickup reconciliation, and channel totals.
 - Automated pickup, decomposition, lead-time reconstruction, coverage-quality, STLY pace, Performance-period, incomplete-history, and analysis-filter regression coverage.
 
 ### Fixed
@@ -42,6 +47,7 @@
 - Performance previous-year/previous-period comparisons no longer treat unavailable historical dates as zero occupancy or zero revenue.
 - Aggregate Performance comparison deltas are suppressed when fewer than 80% of the requested comparison dates are covered.
 - `Cancelled only` now reports cancelled reservation count, LOS, and lead time while continuing to exclude cancelled stays from occupancy, sold room nights, ADR, RevPAR, and revenue.
+- Retired room types are preserved instead of deleted so historical snapshot foreign keys and past inventory periods remain intact.
 
 ## 0.1.0 - 2026-09-21
 
