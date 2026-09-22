@@ -71,6 +71,21 @@ fn database_error(error: sqlx::Error) -> String {
     }
 }
 
+fn database_error_at(stage: &str, error: sqlx::Error) -> String {
+    let error = database_error(error);
+    if error == "DUPLICATE_IMPORT" {
+        error
+    } else {
+        format!("{stage}: {error}")
+    }
+}
+
+async fn rollback_if_active(connection: &mut SqliteConnection) {
+    if connection.is_in_transaction() {
+        let _ = sqlx::query("ROLLBACK").execute(&mut *connection).await;
+    }
+}
+
 #[tauri::command]
 async fn save_import_snapshot(
     app: tauri::AppHandle,
@@ -81,19 +96,29 @@ async fn save_import_snapshot(
         .app_config_dir()
         .map_err(|error| error.to_string())?
         .join("revenue-manager.db");
+
     let options = SqliteConnectOptions::new()
         .filename(database_path)
         .create_if_missing(false)
         .foreign_keys(true)
         .journal_mode(SqliteJournalMode::Wal)
         .busy_timeout(Duration::from_secs(30));
+
     let mut connection = SqliteConnection::connect_with(&options)
         .await
-        .map_err(database_error)?;
-    let mut transaction = connection.begin().await.map_err(database_error)?;
+        .map_err(|error| database_error_at("open database", error))?;
+
+    // Acquire the SQLite write reservation up-front. Managing the transaction
+    // explicitly avoids a second rollback being attempted after SQLite has
+    // already ended a failed transaction, which otherwise masks the real error.
+    sqlx::query("BEGIN IMMEDIATE")
+        .execute(&mut connection)
+        .await
+        .map_err(|error| database_error_at("begin import transaction", error))?;
+
     let summary = &payload.summary;
 
-    sqlx::query(
+    let snapshot_result = sqlx::query(
         r#"INSERT INTO import_snapshots
            (id, property_id, source, original_filename, imported_at, data_as_of, file_hash,
             row_count, valid_row_count, warning_count, excluded_row_count)
@@ -110,12 +135,17 @@ async fn save_import_snapshot(
     .bind(summary.valid_row_count)
     .bind(summary.warning_count)
     .bind(summary.excluded_row_count)
-    .execute(&mut *transaction)
-    .await
-    .map_err(database_error)?;
+    .execute(&mut connection)
+    .await;
+
+    if let Err(error) = snapshot_result {
+        let error = database_error_at("insert import snapshot", error);
+        rollback_if_active(&mut connection).await;
+        return Err(error);
+    }
 
     for reservation in &payload.reservations {
-        sqlx::query(
+        let reservation_result = sqlx::query(
             r#"INSERT INTO reservation_snapshots
                (snapshot_id, property_id, reservation_id, check_in, check_out, booked_at,
                 source, source_status, normalized_status, country, room_quantity,
@@ -142,12 +172,20 @@ async fn save_import_snapshot(
         .bind(reservation.room_revenue_incl_cents)
         .bind(reservation.total_booking_value_cents)
         .bind(reservation.amount_due_cents)
-        .execute(&mut *transaction)
-        .await
-        .map_err(database_error)?;
+        .execute(&mut connection)
+        .await;
+
+        if let Err(error) = reservation_result {
+            let error = database_error_at(
+                &format!("insert reservation {}", reservation.reservation_id),
+                error,
+            );
+            rollback_if_active(&mut connection).await;
+            return Err(error);
+        }
 
         for room in &reservation.rooms {
-            let result = sqlx::query(
+            let room_result = sqlx::query(
                 r#"INSERT INTO reservation_room_snapshots
                    (snapshot_id, property_id, reservation_id, room_type_id, room_type_name, quantity)
                    SELECT ?, ?, ?, id, canonical_name, ? FROM room_types
@@ -159,17 +197,41 @@ async fn save_import_snapshot(
             .bind(room.quantity)
             .bind(&reservation.property_id)
             .bind(&room.room_type_name)
-            .execute(&mut *transaction)
-            .await
-            .map_err(database_error)?;
+            .execute(&mut connection)
+            .await;
+
+            let result = match room_result {
+                Ok(result) => result,
+                Err(error) => {
+                    let error = database_error_at(
+                        &format!(
+                            "insert room '{}' for reservation {}",
+                            room.room_type_name, reservation.reservation_id
+                        ),
+                        error,
+                    );
+                    rollback_if_active(&mut connection).await;
+                    return Err(error);
+                }
+            };
 
             if result.rows_affected() != 1 {
-                return Err(format!("Unknown room type: {}", room.room_type_name));
+                rollback_if_active(&mut connection).await;
+                return Err(format!(
+                    "Unknown room type '{}' for reservation {}",
+                    room.room_type_name, reservation.reservation_id
+                ));
             }
         }
     }
 
-    transaction.commit().await.map_err(database_error)
+    if let Err(error) = sqlx::query("COMMIT").execute(&mut connection).await {
+        let error = database_error_at("commit import transaction", error);
+        rollback_if_active(&mut connection).await;
+        return Err(error);
+    }
+
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
