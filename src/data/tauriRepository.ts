@@ -67,6 +67,11 @@ export class TauriRepository implements Repository {
     }));
   }
 
+  async saveProperty(property: Property): Promise<Property> {
+    await invoke("save_property", { property });
+    return property;
+  }
+
   async listImports(propertyId: string): Promise<ImportSnapshotSummary[]> {
     const db = await this.db();
     const rows = await db.select<SqlRow[]>(
