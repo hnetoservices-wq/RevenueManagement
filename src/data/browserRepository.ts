@@ -31,20 +31,14 @@ export class BrowserRepository implements Repository {
     return this.state.snapshots
       .filter((snapshot) => snapshot.summary.propertyId === propertyId)
       .map((snapshot) => structuredClone(snapshot.summary))
-      .sort((a, b) => b.importedAt.localeCompare(a.importedAt));
+      .sort((a, b) => b.dataAsOf.localeCompare(a.dataAsOf) || b.importedAt.localeCompare(a.importedAt));
   }
 
   async listCurrentReservations(propertyId: string): Promise<Reservation[]> {
-    const latest = new Map<string, { importedAt: string; reservation: Reservation }>();
-    for (const snapshot of this.state.snapshots.filter((item) => item.summary.propertyId === propertyId)) {
-      for (const reservation of snapshot.reservations) {
-        const current = latest.get(reservation.reservationId);
-        if (!current || current.importedAt <= snapshot.summary.importedAt) {
-          latest.set(reservation.reservationId, { importedAt: snapshot.summary.importedAt, reservation });
-        }
-      }
-    }
-    return Array.from(latest.values()).map((item) => structuredClone(item.reservation));
+    const snapshots = this.state.snapshots
+      .filter((item) => item.summary.propertyId === propertyId)
+      .sort((a, b) => b.summary.dataAsOf.localeCompare(a.summary.dataAsOf) || b.summary.importedAt.localeCompare(a.summary.importedAt));
+    return snapshots.length ? structuredClone(snapshots[0].reservations) : [];
   }
 
   async listSnapshotReservations(propertyId: string, snapshotId: string): Promise<Reservation[]> {
