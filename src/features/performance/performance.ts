@@ -265,8 +265,9 @@ export function calculatePerformanceAnalysis(
   reservations: Reservation[],
   filters: DashboardFilters,
   comparisonMode: PerformanceComparisonMode,
+  availabilityReservations: Reservation[] = reservations,
 ): PerformanceAnalysis {
-  const dataAvailabilityStartDate = getDataAvailabilityStart(reservations);
+  const dataAvailabilityStartDate = getDataAvailabilityStart(availabilityReservations);
   const currentCoverage = getPerformanceCoverage(filters, dataAvailabilityStartDate);
   const current = calculateMetrics(property, reservations, effectiveFilters(filters, currentCoverage));
   const comparisonFilters = getPerformanceComparisonFilters(filters, comparisonMode);
