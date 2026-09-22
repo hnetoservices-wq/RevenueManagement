@@ -4,7 +4,6 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 
 ## Next
 
-- Build the dedicated Occupancy dashboard with room-type occupancy, weekday patterns, and calendar-style analysis.
 - Build the dedicated Revenue dashboard with ADR, RevPAR, revenue mix, and channel contribution.
 - Make days-before-arrival points configurable after the fixed D-180 / D-90 / D-60 / D-30 / D-14 / D-7 / D-3 / D-0 model is validated with real data.
 - Add stay-date / booking-date analysis mode.
@@ -21,7 +20,6 @@ Items here are intentionally deferred until the first end-to-end workflow is sta
 - Channels dashboard.
 - Room dashboard with explicit estimated allocation labels for multi-room revenue.
 - Cancellations dashboard.
-- Daily calendar heatmap.
 - Lead-time and length-of-stay histograms.
 - Deterministic insight engine.
 - Budget and target input workflow.
