@@ -23,12 +23,15 @@
 .occupancy-weekdays, .occupancy-month-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .occupancy-weekdays { margin-bottom: 4px; }
 .occupancy-weekdays span { color: #9aa0a6; font-size: 8px; font-weight: 800; text-align: center; }
-.occupancy-day { min-height: 39px; padding: 5px 3px; border: 1px solid transparent; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.occupancy-day { position: relative; min-height: 39px; padding: 5px 3px; border: 1px solid transparent; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .occupancy-day b { font-size: 9px; font-weight: 800; line-height: 1; }
 .occupancy-day small { margin-top: 4px; font-size: 8px; line-height: 1; }
 .occupancy-day.empty { background: transparent; }
+.occupancy-closure-marker { position: absolute; right: 4px; top: 4px; width: 5px; height: 5px; border-radius: 50%; background: #c8842f; box-shadow: 0 0 0 2px rgba(200,132,47,.15); }
 .occupancy-calendar-legend { display: flex; gap: 6px; flex-wrap: wrap; }
 .occupancy-calendar-legend span { padding: 5px 7px; border-radius: 6px; font-size: 8px; font-weight: 800; }
+.occupancy-calendar-legend .occ-closure-legend { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #ead7b2; background: #fff8ec; color: #8d6224; }
+.occ-closure-legend i { width: 6px; height: 6px; border-radius: 50%; background: #c8842f; }
 .occ-low { background: #f3f5f6; color: #7b858e; border-color: #e6eaed; }
 .occ-medium { background: #eef5f3; color: #4b746f; border-color: #dbe9e6; }
 .occ-high { background: #dbece8; color: #23645c; border-color: #c5dfda; }
