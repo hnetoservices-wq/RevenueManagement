@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MALMERENDAS_PROPERTY, DEFAULT_STATUS_MAPPING } from "../src/domain/property";
+import type { Property } from "../src/domain/models";
 import { parseAmenitizFile } from "../src/features/import/amenitiz";
 
 const header = [
@@ -56,5 +57,41 @@ describe("legacy historical import", () => {
     expect(preview.reservations[2].roomRevenueInclCents).toBe(0);
     expect(preview.issues.some((item) => item.code === "missing_historical_revenue")).toBe(true);
     expect(preview.issues.some((item) => item.code === "historical_final_dataset")).toBe(true);
+  });
+
+  it("matches persisted room names despite case and harmless spacing differences", async () => {
+    const persistedProperty: Property = {
+      ...MALMERENDAS_PROPERTY,
+      roomTypes: MALMERENDAS_PROPERTY.roomTypes.map((room) => ({
+        ...room,
+        canonicalName: `  ${room.canonicalName.toUpperCase()}  `,
+      })),
+    };
+    const row = csvRow([
+      "legacy-2024-0003", "2024|B|803867|2023-11-10", "2024", "3", "803867",
+      "2023-11-10", "2024-01-01", "2024-01-05", "C/O", "active", "B", "Booking.com",
+      "0", "0", "0", "0", "1", "0", "1", "4", "4", "52", "438.84", "", "", "",
+    ]);
+    const bytes = new TextEncoder().encode(`\uFEFF${header}\r\n${row}`);
+    const preview = await parseAmenitizFile(bytes, "history.csv", persistedProperty, DEFAULT_STATUS_MAPPING);
+
+    expect(preview.validRowCount).toBe(1);
+    expect(preview.reservations[0].rooms).toEqual([{ roomTypeName: "  TERRACE LOFT  ", quantity: 1 }]);
+  });
+
+  it("includes useful validation details when every row is rejected", async () => {
+    const incompatibleProperty: Property = {
+      ...MALMERENDAS_PROPERTY,
+      roomTypes: [{ ...MALMERENDAS_PROPERTY.roomTypes[0], canonicalName: "Completely Different Room" }],
+    };
+    const row = csvRow([
+      "legacy-2024-0003", "2024|B|803867|2023-11-10", "2024", "3", "803867",
+      "2023-11-10", "2024-01-01", "2024-01-05", "C/O", "active", "B", "Booking.com",
+      "0", "0", "0", "0", "1", "0", "1", "4", "4", "52", "438.84", "", "", "",
+    ]);
+    const bytes = new TextEncoder().encode(`\uFEFF${header}\r\n${row}`);
+
+    await expect(parseAmenitizFile(bytes, "history.csv", incompatibleProperty, DEFAULT_STATUS_MAPPING))
+      .rejects.toThrow(/Historical room Terrace Loft/);
   });
 });
