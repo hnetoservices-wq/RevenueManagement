@@ -3,6 +3,7 @@ import type { ImportPreview, ImportSnapshotSummary, Property, Reservation } from
 export interface Repository {
   initialize(): Promise<void>;
   listProperties(): Promise<Property[]>;
+  saveProperty(property: Property): Promise<Property>;
   listImports(propertyId: string): Promise<ImportSnapshotSummary[]>;
   listCurrentReservations(propertyId: string): Promise<Reservation[]>;
   listSnapshotReservations(propertyId: string, snapshotId: string): Promise<Reservation[]>;
