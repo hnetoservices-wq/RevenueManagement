@@ -1,13 +1,15 @@
 import { addDays, differenceInCalendarDays, max, min } from "date-fns";
-import { enumerateDates, nightsBetween, parseIsoDate, shiftYear } from "./dates";
+import { enumerateDates, nightsBetween, parseIsoDate, shiftYear, toIsoDate } from "./dates";
 import type {
   DashboardFilters,
   DashboardMetrics,
   DashboardResult,
   IsoDate,
+  LeadTimeCurveResult,
   Property,
   Reservation,
   SnapshotComparisonResult,
+  SnapshotReservationSet,
 } from "./models";
 
 function average(values: number[]): number | null {
@@ -177,6 +179,64 @@ export function calculateSnapshotComparison(
           : current.revparCents - baseline.revparCents,
     },
   };
+}
+
+export function calculateLeadTimeCurve(
+  property: Property,
+  snapshots: SnapshotReservationSet[],
+  filters: DashboardFilters,
+  targetDays: number[] = [180, 90, 60, 30, 14, 7, 3, 0],
+  maxSnapshotLagDays = 14,
+): LeadTimeCurveResult {
+  const stayDates = enumerateDates(filters.startDate, filters.endDate);
+  const orderedSnapshots = [...snapshots].sort((a, b) => a.dataAsOf.localeCompare(b.dataAsOf));
+
+  const points = targetDays.map((daysBeforeArrival) => {
+    let roomNightsSold = 0;
+    let availableRoomNights = 0;
+    let roomRevenueCents = 0;
+    let coveredStayDates = 0;
+    let totalSnapshotLagDays = 0;
+
+    for (const stayDate of stayDates) {
+      const targetDate = addDays(parseIsoDate(stayDate), -daysBeforeArrival);
+      const targetIso = toIsoDate(targetDate);
+      const snapshot = orderedSnapshots.findLast((candidate) => candidate.dataAsOf <= targetIso);
+      if (!snapshot) continue;
+
+      const lagDays = differenceInCalendarDays(targetDate, parseIsoDate(snapshot.dataAsOf));
+      if (lagDays < 0 || lagDays > maxSnapshotLagDays) continue;
+
+      const dayMetrics = calculateMetrics(property, snapshot.reservations, {
+        startDate: stayDate,
+        endDate: stayDate,
+        revenueBasis: filters.revenueBasis,
+      });
+
+      roomNightsSold += dayMetrics.roomNightsSold;
+      availableRoomNights += dayMetrics.availableRoomNights;
+      roomRevenueCents += dayMetrics.roomRevenueCents;
+      coveredStayDates += 1;
+      totalSnapshotLagDays += lagDays;
+    }
+
+    return {
+      daysBeforeArrival,
+      label: `D-${daysBeforeArrival}`,
+      roomNightsSold,
+      availableRoomNights,
+      occupancy: availableRoomNights ? roomNightsSold / availableRoomNights : null,
+      roomRevenueCents,
+      adrCents: roomNightsSold ? roomRevenueCents / roomNightsSold : null,
+      revparCents: availableRoomNights ? roomRevenueCents / availableRoomNights : null,
+      coveredStayDates,
+      totalStayDates: stayDates.length,
+      coverage: stayDates.length ? coveredStayDates / stayDates.length : 0,
+      averageSnapshotLagDays: coveredStayDates ? totalSnapshotLagDays / coveredStayDates : null,
+    };
+  });
+
+  return { points, maxSnapshotLagDays };
 }
 
 export function comparison(current: number | null, previous: number | null, rate = false) {
