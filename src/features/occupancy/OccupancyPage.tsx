@@ -76,7 +76,10 @@ function Calendar({ daily }: { daily: DailyPerformance[] }) {
         <div className="occupancy-weekdays">{["S", "M", "T", "W", "T", "F", "S"].map((label, index) => <span key={`${month}-${label}-${index}`}>{label}</span>)}</div>
         <div className="occupancy-month-days">
           {Array.from({ length: leading }).map((_, index) => <span className="occupancy-day empty" key={`empty-${index}`} />)}
-          {days.map((day) => <span className={`occupancy-day ${occupancyBand(day.occupancy)}`} key={day.date} title={`${day.date}: ${percent(day.occupancy)} · ${day.roomNightsSold}/${day.availableRoomNights} room nights`}><b>{Number(day.date.slice(8))}</b><small>{day.occupancy === null ? "—" : `${Math.round(day.occupancy * 100)}%`}</small></span>)}
+          {days.map((day) => {
+            const closureText = day.unavailableRoomNights ? ` · ${day.unavailableRoomNights} indisponível${day.unavailableRoomNights === 1 ? "" : "is"}` : "";
+            return <span className={`occupancy-day ${occupancyBand(day.occupancy)} ${day.unavailableRoomNights ? "has-closure" : ""}`} key={day.date} title={`${day.date}: ${percent(day.occupancy)} · ${day.roomNightsSold}/${day.availableRoomNights} noites-quarto${closureText}`}><b>{Number(day.date.slice(8))}</b><small>{day.occupancy === null ? "—" : `${Math.round(day.occupancy * 100)}%`}</small>{day.unavailableRoomNights > 0 && <i className="occupancy-closure-marker" aria-label={`${day.unavailableRoomNights} noites-quarto indisponíveis`} />}</span>;
+          })}
         </div>
       </section>;
     })}
@@ -107,7 +110,7 @@ export function OccupancyPage({ property, reservations, coverageReservations = r
   const kpis = [
     { label: "Occupancy", value: percent(analysis.current.occupancy), detail: comparison ? `${signed(occupancyDelta, 1)} pp vs ${comparisonName}` : comparisonMode === "none" ? "No comparison" : "Insufficient comparison data", delta: occupancyDelta },
     { label: "Room nights sold", value: number(analysis.current.roomNightsSold), detail: comparison ? `${signed(roomNightDelta, 1)}% vs ${comparisonName}` : comparisonMode === "none" ? "No comparison" : "Insufficient comparison data", delta: roomNightDelta },
-    { label: "Available room nights", value: number(analysis.current.availableRoomNights), detail: "Configured inventory", delta: null },
+    { label: "Available room nights", value: number(analysis.current.availableRoomNights), detail: analysis.current.unavailableRoomNights ? `${number(analysis.current.unavailableRoomNights)} noites-quarto indisponíveis` : "Sem indisponibilidades de inventário", delta: null },
     { label: "80%+ occupancy days", value: number(analysis.daysAtOrAbove80), detail: `${analysis.soldOutDays} sold-out day${analysis.soldOutDays === 1 ? "" : "s"}`, delta: null },
     { label: "Average rooms sold / day", value: number(averageDailySold, 1), detail: `${analysis.current.daily.length} covered stay dates`, delta: null },
   ];
@@ -139,7 +142,7 @@ export function OccupancyPage({ property, reservations, coverageReservations = r
     </section>
 
     <article className="panel occupancy-room-type-panel">
-      <div className="panel-heading"><div><h2>Occupancy by room type</h2><p>Exact room-night utilisation using each room type's configured inventory.</p></div></div>
+      <div className="panel-heading"><div><h2>Occupancy by room type</h2><p>Exact room-night utilisation using each room type's sellable inventory after closures.</p></div></div>
       <div className="occupancy-room-table"><table><thead><tr><th>Room type</th><th>Occupancy</th><th>Sold</th><th>Available</th><th>{comparisonMode === "none" ? "Comparison" : `${comparisonName} occupancy`}</th><th>Occ. Δ</th></tr></thead><tbody>{analysis.roomTypes.map((row) => {
         const delta = row.comparisonOccupancy !== null && row.occupancy !== null ? (row.occupancy - row.comparisonOccupancy) * 100 : null;
         return <tr key={row.roomType}><td><strong>{row.roomType}</strong></td><td><strong>{percent(row.occupancy)}</strong></td><td>{number(row.roomNightsSold)}</td><td>{number(row.availableRoomNights)}</td><td>{row.comparisonOccupancy === null ? "—" : percent(row.comparisonOccupancy)}</td><td className={tone(delta)}>{delta === null ? "—" : `${signed(delta, 1)} pp`}</td></tr>;
@@ -152,7 +155,7 @@ export function OccupancyPage({ property, reservations, coverageReservations = r
     </section>
 
     <article className="panel occupancy-calendar-panel">
-      <div className="panel-heading"><div><h2>Daily occupancy calendar</h2><p>On-the-books occupancy for each covered stay date. Future dates are booking position, not final realised occupancy.</p></div><div className="occupancy-calendar-legend"><span className="occ-low">&lt;50%</span><span className="occ-medium">50–79%</span><span className="occ-high">80–99%</span><span className="occ-full">100%</span></div></div>
+      <div className="panel-heading"><div><h2>Daily occupancy calendar</h2><p>On-the-books occupancy using sellable inventory for each covered stay date. A dot marks dates with unavailable rooms.</p></div><div className="occupancy-calendar-legend"><span className="occ-low">&lt;50%</span><span className="occ-medium">50–79%</span><span className="occ-high">80–99%</span><span className="occ-full">100%</span><span className="occ-closure-legend"><i />Indisponibilidade</span></div></div>
       <Calendar daily={analysis.current.daily} />
     </article>
   </>;
