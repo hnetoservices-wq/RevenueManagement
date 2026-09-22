@@ -12,7 +12,7 @@ describe("UI preferences and localisation", () => {
   it("expands analytical abbreviations in Portuguese", () => {
     expect(translateUiText("ADR")).toBe("ADR (Tarifa média diária)");
     expect(translateUiText("RevPAR")).toBe("RevPAR (Receita por quarto disponível)");
-    expect(translateUiText("OTB occupancy")).toBe("reservas em carteira occupancy");
+    expect(translateUiText("OTB occupancy")).toBe("Ocupação em carteira");
     expect(translateUiText("+5.0 pp")).toBe("+5.0 pontos percentuais");
   });
 
