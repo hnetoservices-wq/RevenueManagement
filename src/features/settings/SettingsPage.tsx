@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Property } from "../../domain/models";
 import {
+  getInterfaceZoom,
+  getThemePreference,
+  resetInterfaceZoom,
+  setInterfaceZoom,
+  setThemePreference,
+  ZOOM_STEP,
+  type ThemePreference,
+} from "../../ui/preferences";
+import {
   blankPropertyDraft,
   configuredRoomCount,
   draftToProperty,
@@ -29,12 +38,23 @@ export function SettingsPage({ property, importCount, onSave }: Props) {
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<ThemePreference>(() => getThemePreference());
+  const [interfaceZoom, setZoom] = useState(() => getInterfaceZoom());
 
   useEffect(() => {
     if (isNew) return;
     setDraft(propertyToDraft(property));
     setSaveError(null);
   }, [property, isNew]);
+
+  useEffect(() => {
+    const syncPreferences = () => {
+      setTheme(getThemePreference());
+      setZoom(getInterfaceZoom());
+    };
+    window.addEventListener("revenue-manager:preferences", syncPreferences);
+    return () => window.removeEventListener("revenue-manager:preferences", syncPreferences);
+  }, []);
 
   const issues = useMemo(() => validatePropertyDraft(draft), [draft]);
   const configured = configuredRoomCount(draft);
@@ -101,6 +121,30 @@ export function SettingsPage({ property, importCount, onSave }: Props) {
     {saveError && <div className="alert"><span>{saveError}</span></div>}
 
     {importCount > 0 && !isNew && <div className="settings-history-warning"><strong>This property already has historical imports.</strong><span>Changing room names after imports can affect room-type historical analysis. If the Amenitiz room names have not changed, keep the existing names exactly as they are.</span></div>}
+
+    <article className="panel settings-appearance-panel">
+      <div className="panel-heading"><div><h2>Aparência e legibilidade</h2><p>Estas preferências aplicam-se a toda a aplicação e ficam guardadas neste computador.</p></div></div>
+      <div className="settings-preferences-grid">
+        <label className="settings-preference-field">
+          <span>Tema</span>
+          <select value={theme} onChange={(event) => { const next = event.target.value as ThemePreference; setTheme(next); setThemePreference(next); }}>
+            <option value="system">Seguir o sistema</option>
+            <option value="light">Claro</option>
+            <option value="dark">Escuro</option>
+          </select>
+        </label>
+        <div className="settings-preference-field">
+          <span>Tamanho da interface</span>
+          <div className="settings-zoom-controls">
+            <button type="button" aria-label="Diminuir tamanho" onClick={() => setZoom(setInterfaceZoom(interfaceZoom - ZOOM_STEP))}>−</button>
+            <output>{Math.round(interfaceZoom * 100)}%</output>
+            <button type="button" aria-label="Aumentar tamanho" onClick={() => setZoom(setInterfaceZoom(interfaceZoom + ZOOM_STEP))}>+</button>
+            <button type="button" onClick={() => setZoom(resetInterfaceZoom())}>Repor</button>
+          </div>
+          <small className="settings-zoom-help">Também pode usar Ctrl + roda do rato, Ctrl + +, Ctrl + − e Ctrl + 0. Intervalo disponível: 85% a 160%.</small>
+        </div>
+      </div>
+    </article>
 
     <section className="settings-grid">
       <article className="panel settings-general-panel">
