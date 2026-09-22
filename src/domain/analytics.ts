@@ -8,6 +8,10 @@ import type {
   IsoDate,
   LeadTimeCurveResult,
   LeadTimePaceComparisonResult,
+  PickupChangeType,
+  PickupDecompositionCategory,
+  PickupDecompositionEntry,
+  PickupDecompositionResult,
   Property,
   Reservation,
   SnapshotComparisonResult,
@@ -52,6 +56,29 @@ function latestSnapshotAtOrBefore(
     if (orderedSnapshots[index].dataAsOf <= targetDate) return orderedSnapshots[index];
   }
   return null;
+}
+
+function roomSignature(reservation: Reservation): string {
+  return [...reservation.rooms]
+    .sort((a, b) => a.roomTypeName.localeCompare(b.roomTypeName))
+    .map((room) => `${room.roomTypeName}:${room.quantity}`)
+    .join("|");
+}
+
+function meaningfulChangedFields(before: Reservation, after: Reservation, filters: DashboardFilters): string[] {
+  const fields: string[] = [];
+  if (before.status !== after.status) fields.push("status");
+  if (before.checkIn !== after.checkIn || before.checkOut !== after.checkOut) fields.push("stay dates");
+  if (before.roomQuantity !== after.roomQuantity) fields.push("room quantity");
+  if (roomSignature(before) !== roomSignature(after)) fields.push("room type");
+  const beforeRoomRevenue = filters.revenueBasis === "inclusive" ? before.roomRevenueInclCents : before.roomRevenueExclCents;
+  const afterRoomRevenue = filters.revenueBasis === "inclusive" ? after.roomRevenueInclCents : after.roomRevenueExclCents;
+  if (beforeRoomRevenue !== afterRoomRevenue) fields.push("room revenue");
+  const beforeExtras = filters.revenueBasis === "inclusive" ? before.extraRevenueInclCents : before.extraRevenueExclCents;
+  const afterExtras = filters.revenueBasis === "inclusive" ? after.extraRevenueInclCents : after.extraRevenueExclCents;
+  if (beforeExtras !== afterExtras) fields.push("extras");
+  if (before.touristTaxCents !== after.touristTaxCents) fields.push("tourist tax");
+  return fields;
 }
 
 export function coverageQuality(
@@ -199,6 +226,100 @@ export function calculateSnapshotComparison(
         current.revparCents === null || baseline.revparCents === null
           ? null
           : current.revparCents - baseline.revparCents,
+    },
+  };
+}
+
+export function calculatePickupDecomposition(
+  property: Property,
+  baselineReservations: Reservation[],
+  currentReservations: Reservation[],
+  filters: DashboardFilters,
+): PickupDecompositionResult {
+  const baselineById = new Map(baselineReservations.map((reservation) => [reservation.reservationId, reservation]));
+  const currentById = new Map(currentReservations.map((reservation) => [reservation.reservationId, reservation]));
+  const reservationIds = new Set([...baselineById.keys(), ...currentById.keys()]);
+  const entries: PickupDecompositionEntry[] = [];
+
+  for (const reservationId of reservationIds) {
+    const before = baselineById.get(reservationId) ?? null;
+    const after = currentById.get(reservationId) ?? null;
+    const beforeRelevant = before?.status === "active" && intersects(before, filters.startDate, filters.endDate);
+    const afterRelevant = after?.status === "active" && intersects(after, filters.startDate, filters.endDate);
+    if (!beforeRelevant && !afterRelevant) continue;
+
+    let type: PickupChangeType;
+    let changedFields: string[];
+    if (!before && after) {
+      type = "new";
+      changedFields = ["new reservation"];
+    } else if (before && !after) {
+      type = "removed";
+      changedFields = ["removed from later report"];
+    } else if (before && after && before.status === "active" && after.status === "cancelled") {
+      type = "cancelled";
+      changedFields = meaningfulChangedFields(before, after, filters);
+    } else if (before && after) {
+      changedFields = meaningfulChangedFields(before, after, filters);
+      if (!changedFields.length) continue;
+      type = "modified";
+    } else {
+      continue;
+    }
+
+    const beforeMetrics = before ? calculateMetrics(property, [before], filters) : null;
+    const afterMetrics = after ? calculateMetrics(property, [after], filters) : null;
+    const beforeRoomNights = beforeMetrics?.roomNightsSold ?? 0;
+    const afterRoomNights = afterMetrics?.roomNightsSold ?? 0;
+    const beforeRoomRevenue = beforeMetrics?.roomRevenueCents ?? 0;
+    const afterRoomRevenue = afterMetrics?.roomRevenueCents ?? 0;
+    const beforeTotalRevenue = beforeMetrics?.totalRevenueCents ?? 0;
+    const afterTotalRevenue = afterMetrics?.totalRevenueCents ?? 0;
+
+    entries.push({
+      reservationId,
+      type,
+      beforeStatus: before?.status ?? null,
+      afterStatus: after?.status ?? null,
+      beforeCheckIn: before?.checkIn ?? null,
+      beforeCheckOut: before?.checkOut ?? null,
+      afterCheckIn: after?.checkIn ?? null,
+      afterCheckOut: after?.checkOut ?? null,
+      roomNightsDelta: afterRoomNights - beforeRoomNights,
+      roomRevenueCentsDelta: afterRoomRevenue - beforeRoomRevenue,
+      totalRevenueCentsDelta: afterTotalRevenue - beforeTotalRevenue,
+      changedFields,
+    });
+  }
+
+  entries.sort((a, b) => {
+    const revenueDifference = Math.abs(b.roomRevenueCentsDelta) - Math.abs(a.roomRevenueCentsDelta);
+    if (revenueDifference !== 0) return revenueDifference;
+    return Math.abs(b.roomNightsDelta) - Math.abs(a.roomNightsDelta);
+  });
+
+  const categoryOrder: PickupChangeType[] = ["new", "cancelled", "modified", "removed"];
+  const categories: PickupDecompositionCategory[] = categoryOrder.map((type) => {
+    const categoryEntries = entries.filter((entry) => entry.type === type);
+    return {
+      type,
+      reservations: categoryEntries.length,
+      roomNightsDelta: categoryEntries.reduce((sum, entry) => sum + entry.roomNightsDelta, 0),
+      roomRevenueCentsDelta: categoryEntries.reduce((sum, entry) => sum + entry.roomRevenueCentsDelta, 0),
+      totalRevenueCentsDelta: categoryEntries.reduce((sum, entry) => sum + entry.totalRevenueCentsDelta, 0),
+    };
+  });
+
+  const baselineMetrics = calculateMetrics(property, baselineReservations, filters);
+  const currentMetrics = calculateMetrics(property, currentReservations, filters);
+
+  return {
+    categories,
+    entries,
+    net: {
+      roomNightsDelta: currentMetrics.roomNightsSold - baselineMetrics.roomNightsSold,
+      roomRevenueCentsDelta: currentMetrics.roomRevenueCents - baselineMetrics.roomRevenueCents,
+      totalRevenueCentsDelta: currentMetrics.totalRevenueCents - baselineMetrics.totalRevenueCents,
     },
   };
 }
