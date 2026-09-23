@@ -1,0 +1,121 @@
+.dashboard-heading-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.dashboard-comparison {
+  position: relative;
+}
+
+.dashboard-comparison > summary {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 13px;
+  border: 1px solid #dfe3e7;
+  border-radius: 11px;
+  background: #fff;
+  color: #34404b;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.dashboard-comparison > summary::-webkit-details-marker { display: none; }
+.dashboard-comparison[open] > summary { border-color: #9bbdb8; box-shadow: 0 0 0 2px rgba(31,111,104,.08); }
+
+.dashboard-comparison-menu {
+  position: absolute;
+  z-index: 25;
+  right: 0;
+  top: calc(100% + 7px);
+  width: 220px;
+  padding: 9px;
+  border: 1px solid #dfe3e7;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(28, 40, 50, .14);
+}
+
+.dashboard-comparison-menu > span {
+  display: block;
+  padding: 4px 7px 8px;
+  color: #818991;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.dashboard-comparison-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 7px;
+  border-radius: 7px;
+  color: #34404b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-comparison-option:hover { background: #f4f7f7; }
+.dashboard-comparison-option input { margin: 0; }
+
+.dashboard-comparison-clear {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid #dfe3e7;
+  border-radius: 7px;
+  background: #f7f8f9;
+  color: #5d6871;
+  font-weight: 700;
+}
+
+.dashboard-comparison-empty {
+  padding: 9px 7px;
+  color: #899198;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.kpi-comparisons {
+  display: grid;
+  gap: 3px;
+  margin-top: 7px;
+}
+
+.kpi-comparisons span {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.kpi-note {
+  display: block;
+  margin-top: 6px;
+  color: #8a9299;
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+html[data-theme="dark"] .dashboard-comparison > summary,
+html[data-theme="dark"] .dashboard-comparison-menu {
+  background: #162127;
+  color: #e5edeb;
+  border-color: #34434a;
+}
+
+html[data-theme="dark"] .dashboard-comparison-option { color: #dfe8e6; }
+html[data-theme="dark"] .dashboard-comparison-option:hover { background: #1d2b31; }
+html[data-theme="dark"] .dashboard-comparison-clear {
+  background: #10191e;
+  color: #cbd6d4;
+  border-color: #34434a;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-heading-controls { flex-direction: column; align-items: stretch; }
+  .dashboard-comparison > summary { justify-content: center; }
+}
