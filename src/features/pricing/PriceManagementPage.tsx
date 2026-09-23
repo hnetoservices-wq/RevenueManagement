@@ -30,8 +30,10 @@ const DISCOUNT_KINDS: PriceDiscountKind[] = [
   "custom",
 ];
 
-function euro(cents: number | null, currency: string) {
-  if (cents === null || cents <= 0) return "—";
+const STACK_COLORS = ["blue", "yellow", "green", "grey", "pink"] as const;
+
+function euro(cents: number | null | undefined, currency: string) {
+  if (cents === null || cents === undefined || cents <= 0) return "";
   return new Intl.NumberFormat("pt-PT", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100);
 }
 
@@ -59,12 +61,40 @@ function parsePercentage(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function coefficient(value: number | null) {
+  return value === null || !Number.isFinite(value) ? "—" : value.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function blankDiscount(): PriceDiscountEntry {
   return { id: crypto.randomUUID(), kind: "custom", name: "", discountPct: 0, active: true };
 }
 
-function activeDiscountCount(period: PricePeriod) {
-  return period.discounts.filter((item) => item.active).length;
+function isLastMinute(kind: PriceDiscountKind) {
+  return kind === "direct_last_minute" || kind === "ota_last_minute";
+}
+
+function normalizedDiscount(item: PriceDiscountEntry): PriceDiscountEntry {
+  const name = item.name.trim() || defaultDiscountName(item.kind);
+  return { ...item, name };
+}
+
+function stackSlots(kind: PriceDiscountKind): number[] {
+  switch (kind) {
+    case "loyalty": return [0, 1, 2];
+    case "mobile": return [1, 2];
+    case "basic_deal": return [1];
+    case "booking_campaign": return [0];
+    case "expedia_campaign": return [3];
+    case "limited_time_deal": return [4];
+    case "ota_last_minute": return [2];
+    case "custom": return [3];
+    default: return [];
+  }
+}
+
+function selectedDiscountLabel(item: PriceDiscountEntry) {
+  if (item.kind === "loyalty" && item.discountPct > 0) return `Fidelização ${percentageInput(item.discountPct)}%`;
+  return item.name.trim() || DISCOUNT_KIND_LABELS[item.kind];
 }
 
 export function PriceManagementPage({ property }: { property: Property }) {
@@ -93,7 +123,6 @@ export function PriceManagementPage({ property }: { property: Property }) {
   const [periodDiscounts, setPeriodDiscounts] = useState<PriceDiscountEntry[]>([]);
   const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
   const [periodError, setPeriodError] = useState<string | null>(null);
-  const [matrixPeriodId, setMatrixPeriodId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -109,8 +138,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
       setConfig(next);
       setInputs(Object.fromEntries(roomTypes.map((room) => [room.id, toInputValue(next.basePricesCents[room.id] ?? 0)])));
       setDirty(false);
-      resetPeriodForm();
-      setMatrixPeriodId(next.periods[0]?.id ?? "");
+      if (next.periods[0]) loadPeriod(next.periods[0]); else resetPeriodForm();
     }).catch((cause) => {
       if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
     }).finally(() => {
@@ -129,17 +157,32 @@ export function PriceManagementPage({ property }: { property: Property }) {
   const rows = useMemo(() => buildRoomBasePriceRows(roomTypes, draftConfig), [roomTypes, draftConfig]);
   const average = useMemo(() => averageConfiguredBasePrice(roomTypes, draftConfig.basePricesCents), [roomTypes, draftConfig.basePricesCents]);
   const range = useMemo(() => configuredBasePriceRange(roomTypes, draftConfig.basePricesCents), [roomTypes, draftConfig.basePricesCents]);
-  const configuredCount = rows.filter((row) => row.basePriceCents > 0).length;
   const referenceRoom = roomTypes.find((room) => room.id === draftConfig.referenceRoomTypeId);
   const referencePrice = referenceRoom ? draftConfig.basePricesCents[referenceRoom.id] ?? 0 : 0;
   const periods = [...draftConfig.periods].sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const totalActiveDiscounts = periods.reduce((sum, period) => sum + activeDiscountCount(period), 0);
-  const matrixPeriod = periods.find((period) => period.id === matrixPeriodId) ?? periods[0] ?? null;
-  const matrixRows = matrixPeriod ? projectPeriodRoomRateRows(roomTypes, draftConfig, matrixPeriod) : [];
-  const matrixReferenceRates = matrixPeriod ? calculatePeriodReferenceRates(matrixPeriod) : null;
-  const matrixDiscountRows = matrixPeriod && matrixReferenceRates
-    ? calculateDiscountRateResults(matrixPeriod, matrixReferenceRates.otaFlexCents, matrixReferenceRates.directNonRefundableCents)
+
+  const previewPeriod = useMemo<PricePeriod>(() => ({
+    id: editingPeriodId ?? "preview",
+    startDate: (periodStart || "2000-01-01") as IsoDate,
+    endDate: (periodEnd || periodStart || "2000-01-01") as IsoDate,
+    directFlexReferenceCents: toCents(periodPrice),
+    otaUpliftPct: parsePercentage(periodOtaUplift),
+    nonRefundableDiscountPct: parsePercentage(periodNrDiscount),
+    discounts: periodDiscounts.map(normalizedDiscount),
+  }), [editingPeriodId, periodDiscounts, periodEnd, periodNrDiscount, periodOtaUplift, periodPrice, periodStart]);
+
+  const previewRates = calculatePeriodReferenceRates(previewPeriod);
+  const previewResults = previewRates
+    ? calculateDiscountRateResults(previewPeriod, previewRates.otaFlexCents, previewRates.directNonRefundableCents)
     : [];
+  const resultById = new Map(previewResults.map((item) => [item.discountId, item]));
+  const regularDiscounts = periodDiscounts.filter((item) => !isLastMinute(item.kind));
+  const lastMinuteDiscounts = periodDiscounts.filter((item) => isLastMinute(item.kind));
+  const directCoefficient = previewRates && referencePrice > 0 ? previewRates.directFlexCents / referencePrice : null;
+  const otaCoefficient = previewRates && referencePrice > 0 ? previewRates.otaFlexCents / referencePrice : null;
+  const stackCounts = STACK_COLORS.map((_, index) => periodDiscounts.filter((item) => item.active && stackSlots(item.kind).includes(index)).length);
+  const dateRowSpan = regularDiscounts.length + lastMinuteDiscounts.length + 3;
+  const roomPreviewRows = previewRates ? projectPeriodRoomRateRows(roomTypes, draftConfig, previewPeriod) : [];
 
   function updatePrice(roomTypeId: string, value: string) {
     setInputs((current) => ({ ...current, [roomTypeId]: value }));
@@ -164,6 +207,17 @@ export function PriceManagementPage({ property }: { property: Property }) {
     setPeriodError(null);
   }
 
+  function loadPeriod(period: PricePeriod) {
+    setEditingPeriodId(period.id);
+    setPeriodStart(period.startDate);
+    setPeriodEnd(period.endDate);
+    setPeriodPrice(toInputValue(period.directFlexReferenceCents));
+    setPeriodOtaUplift(percentageInput(period.otaUpliftPct));
+    setPeriodNrDiscount(percentageInput(period.nonRefundableDiscountPct));
+    setPeriodDiscounts(period.discounts.map((item) => ({ ...item })));
+    setPeriodError(null);
+  }
+
   function addDiscount() {
     setPeriodDiscounts((current) => [...current, blankDiscount()]);
     setPeriodError(null);
@@ -175,9 +229,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
   }
 
   function changeDiscountKind(item: PriceDiscountEntry, kind: PriceDiscountKind) {
-    const oldDefault = defaultDiscountName(item.kind);
-    const shouldRename = !item.name.trim() || item.name === oldDefault;
-    updateDiscount(item.id, { kind, name: shouldRename ? defaultDiscountName(kind) : item.name });
+    updateDiscount(item.id, { kind, name: defaultDiscountName(kind) });
   }
 
   function removeDiscount(id: string) {
@@ -190,13 +242,11 @@ export function PriceManagementPage({ property }: { property: Property }) {
       return;
     }
     const period: PricePeriod = {
+      ...previewPeriod,
       id: editingPeriodId ?? crypto.randomUUID(),
       startDate: periodStart as IsoDate,
       endDate: periodEnd as IsoDate,
-      directFlexReferenceCents: toCents(periodPrice),
-      otaUpliftPct: parsePercentage(periodOtaUplift),
-      nonRefundableDiscountPct: parsePercentage(periodNrDiscount),
-      discounts: periodDiscounts.map((item) => ({ ...item, name: item.name.trim() })),
+      discounts: periodDiscounts.map(normalizedDiscount),
     };
     const validation = validatePricePeriod(period, draftConfig.periods);
     if (validation) {
@@ -207,31 +257,21 @@ export function PriceManagementPage({ property }: { property: Property }) {
       ...current,
       periods: [...current.periods.filter((item) => item.id !== period.id), period].sort((a, b) => a.startDate.localeCompare(b.startDate)),
     }));
-    setMatrixPeriodId(period.id);
+    setEditingPeriodId(period.id);
+    setPeriodDiscounts(period.discounts.map((item) => ({ ...item })));
     setDirty(true);
     setMessage(null);
-    resetPeriodForm();
-  }
-
-  function editPeriod(period: PricePeriod) {
-    setEditingPeriodId(period.id);
-    setPeriodStart(period.startDate);
-    setPeriodEnd(period.endDate);
-    setPeriodPrice(toInputValue(period.directFlexReferenceCents));
-    setPeriodOtaUplift(percentageInput(period.otaUpliftPct));
-    setPeriodNrDiscount(percentageInput(period.nonRefundableDiscountPct));
-    setPeriodDiscounts(period.discounts.map((item) => ({ ...item })));
     setPeriodError(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function removePeriod(id: string) {
     const remaining = draftConfig.periods.filter((item) => item.id !== id).sort((a, b) => a.startDate.localeCompare(b.startDate));
     setConfig((current) => ({ ...current, periods: remaining }));
-    if (editingPeriodId === id) resetPeriodForm();
-    if (matrixPeriodId === id) setMatrixPeriodId(remaining[0]?.id ?? "");
     setDirty(true);
     setMessage(null);
+    if (editingPeriodId === id) {
+      if (remaining[0]) loadPeriod(remaining[0]); else resetPeriodForm();
+    }
   }
 
   async function save() {
@@ -251,6 +291,51 @@ export function PriceManagementPage({ property }: { property: Property }) {
     }
   }
 
+  function renderStackCells(item: PriceDiscountEntry) {
+    const slots = stackSlots(item.kind);
+    return STACK_COLORS.map((color, index) => <td
+      key={`${item.id}-${color}`}
+      className={`sheet-stack-cell ${slots.includes(index) ? `sheet-stack-${color}` : ""}`}
+      title={discountStackDescription(item.kind)}
+    >{item.active && slots.includes(index) ? "✓" : ""}</td>);
+  }
+
+  function renderRateCells(item: PriceDiscountEntry) {
+    const result = resultById.get(item.id);
+    if (item.kind === "direct_last_minute") {
+      return <><td colSpan={2} className="sheet-rate sheet-rate-merged">{euro(result?.directCents, property.currency)}</td><td colSpan={2}></td><td colSpan={2}></td></>;
+    }
+    if (item.kind === "ota_last_minute") {
+      return <><td colSpan={2}></td><td colSpan={2} className="sheet-rate sheet-rate-merged">{euro(result?.bookingFlexCents, property.currency)}</td><td colSpan={2} className="sheet-rate sheet-rate-merged">{euro(result?.expediaFlexCents, property.currency)}</td></>;
+    }
+    return <>
+      <td className="sheet-rate">{euro(result?.directCents, property.currency)}</td>
+      <td className="sheet-rate"></td>
+      <td className="sheet-rate">{euro(result?.bookingFlexCents, property.currency)}</td>
+      <td className="sheet-rate">{euro(result?.bookingNonRefundableCents, property.currency)}</td>
+      <td className="sheet-rate">{euro(result?.expediaFlexCents, property.currency)}</td>
+      <td className="sheet-rate">{euro(result?.expediaNonRefundableCents, property.currency)}</td>
+    </>;
+  }
+
+  function renderDiscountRow(item: PriceDiscountEntry) {
+    return <tr key={item.id} className={!item.active ? "sheet-inactive-row" : ""}>
+      <td colSpan={2} className="sheet-discount-name">
+        {item.kind === "custom" ? <div className="sheet-custom-discount">
+          <select value={item.kind} onChange={(event) => changeDiscountKind(item, event.target.value as PriceDiscountKind)}>{DISCOUNT_KINDS.map((kind) => <option key={kind} value={kind}>{DISCOUNT_KIND_LABELS[kind]}</option>)}</select>
+          <input value={item.name} placeholder="Nome do desconto" onChange={(event) => updateDiscount(item.id, { name: event.target.value })} />
+        </div> : <select value={item.kind} onChange={(event) => changeDiscountKind(item, event.target.value as PriceDiscountKind)}>
+          {DISCOUNT_KINDS.map((kind) => <option key={kind} value={kind}>{kind === item.kind ? selectedDiscountLabel(item) : DISCOUNT_KIND_LABELS[kind]}</option>)}
+        </select>}
+        <button type="button" className="sheet-remove-row" title="Remover desconto" onClick={() => removeDiscount(item.id)}>×</button>
+      </td>
+      <td className="sheet-percent-cell"><input inputMode="decimal" value={percentageInput(item.discountPct)} onChange={(event) => updateDiscount(item.id, { discountPct: parsePercentage(event.target.value) })} /><span>%</span></td>
+      <td className="sheet-active-cell"><input type="checkbox" checked={item.active} onChange={(event) => updateDiscount(item.id, { active: event.target.checked })} /></td>
+      {renderStackCells(item)}
+      {renderRateCells(item)}
+    </tr>;
+  }
+
   if (loading) return <div className="pricing-loading">A carregar configuração de preços…</div>;
 
   return <>
@@ -258,27 +343,18 @@ export function PriceManagementPage({ property }: { property: Property }) {
       <div>
         <p className="eyebrow">Gestão de preços</p>
         <h1>Price Manager</h1>
-        <p>Estrutura base, períodos, incremento OTA e descontos configurados por intervalo de datas.</p>
+        <p>Plano de preços baseado na lógica da Sheet1.</p>
       </div>
-      <button className="primary-button" disabled={!dirty || saving || !roomTypes.length} onClick={() => void save()}>{saving ? "A guardar…" : "Guardar configuração"}</button>
+      <button className="primary-button" disabled={!dirty || saving || !roomTypes.length} onClick={() => void save()}>{saving ? "A guardar…" : "Guardar tudo"}</button>
     </div>
 
     {error && <div className="alert"><span>{error}</span><button onClick={() => setError(null)}>Fechar</button></div>}
     {message && <div className="pricing-success">{message}</div>}
 
-    <section className="pricing-kpis">
-      <article className="kpi-card"><div className="kpi-label">Quartos configurados</div><strong>{configuredCount}/{roomTypes.length}</strong><span className="neutral">Tipos de quarto com preço base</span></article>
-      <article className="kpi-card"><div className="kpi-label">Quarto de referência</div><strong className="pricing-kpi-name">{referenceRoom?.canonicalName ?? "—"}</strong><span className="neutral">Preço âncora de cada período</span></article>
-      <article className="kpi-card"><div className="kpi-label">Preço base de referência</div><strong>{referencePrice > 0 ? euro(referencePrice, property.currency) : "—"}</strong><span className="neutral">Base estrutural</span></article>
-      <article className="kpi-card"><div className="kpi-label">Períodos definidos</div><strong>{periods.length}</strong><span className="neutral">Intervalos de preço</span></article>
-      <article className="kpi-card"><div className="kpi-label">Descontos ativos</div><strong>{totalActiveDiscounts}</strong><span className="neutral">Somados em todos os períodos</span></article>
-    </section>
-
     <div className="pricing-layout">
       <article className="panel pricing-reference-panel">
-        <div className="panel-heading"><div><h2>Quarto de referência</h2><p>O Direct Flex de cada período será introduzido para este quarto.</p></div></div>
+        <div className="panel-heading"><div><h2>Quarto de referência</h2><p>O quarto usado como âncora do plano.</p></div></div>
         <label className="pricing-reference-select">Quarto<select value={draftConfig.referenceRoomTypeId ?? ""} onChange={(event) => updateReference(event.target.value)}>{roomTypes.map((room) => <option key={room.id} value={room.id}>{room.canonicalName}</option>)}</select></label>
-        <div className="pricing-logic-note"><strong>Lógica de Sheet1</strong><span>Os preços base mantêm a relação entre os quartos.</span><span>Os parâmetros comerciais deixam de ser globais: cada período tem o seu incremento OTA e os seus próprios descontos.</span></div>
       </article>
 
       <article className="panel pricing-base-panel">
@@ -294,70 +370,86 @@ export function PriceManagementPage({ property }: { property: Property }) {
       </article>
     </div>
 
-    <article className="panel pricing-period-editor">
-      <div className="panel-heading"><div><h2>{editingPeriodId ? "Editar período" : "Novo período de preço"}</h2><p>Escolha as datas, o preço Direct Flex, o incremento OTA e depois adicione os descontos aplicáveis.</p></div></div>
-      <div className="pricing-period-core">
-        <label>De<input type="date" value={periodStart} onChange={(event) => { setPeriodStart(event.target.value); setPeriodError(null); }} /></label>
-        <label>Até<input type="date" value={periodEnd} onChange={(event) => { setPeriodEnd(event.target.value); setPeriodError(null); }} /></label>
-        <label>Direct Flex · {referenceRoom?.canonicalName ?? "Referência"}<div className="pricing-period-price"><span>€</span><input inputMode="decimal" placeholder="0,00" value={periodPrice} onChange={(event) => { setPeriodPrice(event.target.value); setPeriodError(null); }} /></div></label>
-        <label>Incremento OTA<div className="pricing-percent-input"><input inputMode="decimal" value={periodOtaUplift} onChange={(event) => { setPeriodOtaUplift(event.target.value); setPeriodError(null); }} /><b>%</b></div></label>
-        <label>Desconto NR<div className="pricing-percent-input"><input inputMode="decimal" value={periodNrDiscount} onChange={(event) => { setPeriodNrDiscount(event.target.value); setPeriodError(null); }} /><b>%</b></div></label>
+    <article className="panel pricing-sheet-panel">
+      <div className="pricing-sheet-controls">
+        <label>Período<select value={editingPeriodId ?? ""} onChange={(event) => {
+          const period = periods.find((item) => item.id === event.target.value);
+          if (period) loadPeriod(period); else resetPeriodForm();
+        }}><option value="">Novo período</option>{periods.map((period) => <option key={period.id} value={period.id}>{formatDate(period.startDate)} → {formatDate(period.endDate)}</option>)}</select></label>
+        <button type="button" className="secondary-button" onClick={resetPeriodForm}>+ Novo período</button>
+        <label className="sheet-inline-percent">Incremento OTA<div><input inputMode="decimal" value={periodOtaUplift} onChange={(event) => { setPeriodOtaUplift(event.target.value); setPeriodError(null); }} /><span>%</span></div></label>
+        <label className="sheet-inline-percent">NR<div><input inputMode="decimal" value={periodNrDiscount} onChange={(event) => { setPeriodNrDiscount(event.target.value); setPeriodError(null); }} /><span>%</span></div></label>
+        {editingPeriodId && <button type="button" className="pricing-danger-button" onClick={() => removePeriod(editingPeriodId)}>Remover período</button>}
       </div>
 
-      <div className="pricing-discount-section">
-        <div className="pricing-discount-heading"><div><h3>Descontos do período</h3><p>Cada entrada é independente. A acumulação é determinada automaticamente pela lógica de Sheet1.</p></div><button type="button" className="secondary-button" onClick={addDiscount}>+ Adicionar desconto</button></div>
-        {periodDiscounts.length ? <div className="pricing-discount-list">
-          {periodDiscounts.map((item) => <div className="pricing-discount-row" key={item.id}>
-            <label>Tipo<select value={item.kind} onChange={(event) => changeDiscountKind(item, event.target.value as PriceDiscountKind)}>{DISCOUNT_KINDS.map((kind) => <option key={kind} value={kind}>{DISCOUNT_KIND_LABELS[kind]}</option>)}</select></label>
-            <label>Nome<input value={item.name} placeholder={defaultDiscountName(item.kind)} onChange={(event) => updateDiscount(item.id, { name: event.target.value })} /></label>
-            <label>Desconto<div className="pricing-percent-input"><input inputMode="decimal" value={percentageInput(item.discountPct)} onChange={(event) => updateDiscount(item.id, { discountPct: parsePercentage(event.target.value) })} /><b>%</b></div></label>
-            <label className="pricing-active-toggle">Ativa<input type="checkbox" checked={item.active} onChange={(event) => updateDiscount(item.id, { active: event.target.checked })} /></label>
-            <div className="pricing-stack-preview"><span>Acumula com</span><strong>{discountStackDescription(item.kind)}</strong></div>
-            <button type="button" className="pricing-remove-discount" onClick={() => removeDiscount(item.id)}>Remover</button>
-          </div>)}
-        </div> : <div className="pricing-discount-empty">Sem descontos adicionados. O período pode existir apenas com Direct Flex + incremento OTA.</div>}
+      <div className="pricing-sheet-title"><strong>{referenceRoom?.canonicalName ?? "Quarto de referência"}</strong><b>{euro(referencePrice, property.currency) || "—"}</b></div>
+
+      <div className="pricing-sheet-wrap">
+        <table className="pricing-sheet-grid">
+          <thead>
+            <tr>
+              <th rowSpan={2} className="sheet-dates-head">DATAS</th>
+              <th colSpan={2}>Coeficiente</th>
+              <th rowSpan={2}>Desconto</th>
+              <th rowSpan={2} className="sheet-active-head">Promoção<br/>Ativa</th>
+              <th colSpan={5}>Acumulo<br/>Desconto OTAS</th>
+              <th colSpan={2} className="sheet-direct-head">Directas</th>
+              <th colSpan={2} className="sheet-booking-head">Booking</th>
+              <th colSpan={2} className="sheet-expedia-head">Expedia</th>
+            </tr>
+            <tr>
+              <th>Directa</th><th>OTA</th>
+              {STACK_COLORS.map((color) => <th key={color} className={`sheet-stack-head sheet-stack-${color}`}></th>)}
+              <th>Flex</th><th>NR</th><th>Flex</th><th>NR</th><th>Flex</th><th>NR</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="sheet-base-row">
+              <td rowSpan={dateRowSpan} className="sheet-dates-cell">
+                <input type="date" value={periodStart} onChange={(event) => { setPeriodStart(event.target.value); setPeriodError(null); }} />
+                <span>A</span>
+                <input type="date" value={periodEnd} onChange={(event) => { setPeriodEnd(event.target.value); setPeriodError(null); }} />
+              </td>
+              <td>{coefficient(directCoefficient)}</td>
+              <td>{coefficient(otaCoefficient)}</td>
+              <td></td><td></td>
+              {STACK_COLORS.map((color) => <td key={`base-${color}`}></td>)}
+              <td className="sheet-money-input"><span>€</span><input inputMode="decimal" value={periodPrice} placeholder="0,00" onChange={(event) => { setPeriodPrice(event.target.value); setPeriodError(null); }} /></td>
+              <td className="sheet-rate">{euro(previewRates?.directNonRefundableCents, property.currency)}</td>
+              <td className="sheet-rate">{euro(previewRates?.otaFlexCents, property.currency)}</td>
+              <td className="sheet-rate">{euro(previewRates?.otaNonRefundableCents, property.currency)}</td>
+              <td className="sheet-rate">{euro(previewRates?.otaFlexCents, property.currency)}</td>
+              <td className="sheet-rate">{euro(previewRates?.otaNonRefundableCents, property.currency)}</td>
+            </tr>
+
+            {regularDiscounts.map(renderDiscountRow)}
+
+            <tr className="sheet-last-minute-divider"><td colSpan={15}>Last Minute</td></tr>
+
+            {lastMinuteDiscounts.map(renderDiscountRow)}
+
+            <tr className="sheet-accumulation-row">
+              <td colSpan={2}>Acumulo de Descontos</td><td></td><td></td>
+              {stackCounts.map((count, index) => <td key={`count-${STACK_COLORS[index]}`} className={`sheet-stack-${STACK_COLORS[index]}`}>{count || ""}</td>)}
+              <td colSpan={6}></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
+      <div className="pricing-sheet-actions">
+        <button type="button" className="secondary-button" onClick={addDiscount}>+ Adicionar entrada</button>
+        <span>{regularDiscounts.length + lastMinuteDiscounts.length} descontos</span>
+        <button type="button" className="primary-button" onClick={savePeriodDraft}>{editingPeriodId ? "Aplicar alterações ao período" : "Adicionar período"}</button>
+      </div>
       {periodError && <div className="pricing-period-error">{periodError}</div>}
-      <div className="pricing-period-editor-actions"><button type="button" className="primary-button" onClick={savePeriodDraft}>{editingPeriodId ? "Atualizar período" : "+ Adicionar período"}</button>{editingPeriodId && <button type="button" className="secondary-button" onClick={resetPeriodForm}>Cancelar</button>}</div>
     </article>
 
-    <article className="panel pricing-period-panel">
-      <div className="panel-heading"><div><h2>Períodos configurados</h2><p>Resumo da estratégia comercial definida para cada intervalo.</p></div></div>
-      {periods.length ? <div className="pricing-period-table-wrap"><table className="pricing-period-table pricing-period-summary"><thead><tr><th>Período</th><th>Direct Flex</th><th>Incremento OTA</th><th>NR</th><th>Descontos ativos</th><th>OTA público</th><th></th></tr></thead><tbody>
-        {periods.map((period) => {
-          const rates = calculatePeriodReferenceRates(period);
-          return <tr key={period.id}>
-            <td><strong>{formatDate(period.startDate)}</strong><span> → {formatDate(period.endDate)}</span></td>
-            <td>{euro(period.directFlexReferenceCents, property.currency)}</td>
-            <td>{percentageInput(period.otaUpliftPct)}%</td>
-            <td>{percentageInput(period.nonRefundableDiscountPct)}%</td>
-            <td><strong>{activeDiscountCount(period)}</strong> / {period.discounts.length}</td>
-            <td>{euro(rates?.otaFlexCents ?? null, property.currency)}</td>
-            <td className="pricing-period-actions"><button type="button" onClick={() => { setMatrixPeriodId(period.id); editPeriod(period); }}>Editar</button><button type="button" onClick={() => setMatrixPeriodId(period.id)}>Ver</button><button type="button" onClick={() => removePeriod(period.id)}>Remover</button></td>
-          </tr>;
-        })}
-      </tbody></table></div> : <div className="pricing-period-empty">Ainda não existem períodos de preço.</div>}
-    </article>
-
-    {matrixPeriod && matrixReferenceRates && <>
-      <article className="panel pricing-discount-simulation">
-        <div className="pricing-matrix-header"><div><h2>Simulação de descontos · {referenceRoom?.canonicalName ?? "Referência"}</h2><p>{formatDate(matrixPeriod.startDate)} → {formatDate(matrixPeriod.endDate)} · OTA público {euro(matrixReferenceRates.otaFlexCents, property.currency)}</p></div><label>Período<select value={matrixPeriod.id} onChange={(event) => setMatrixPeriodId(event.target.value)}>{periods.map((period) => <option key={period.id} value={period.id}>{formatDate(period.startDate)} → {formatDate(period.endDate)}</option>)}</select></label></div>
-        <div className="pricing-period-table-wrap"><table className="pricing-discount-results"><thead><tr><th>Desconto</th><th>%</th><th>Acumulação automática</th><th>Directa</th><th>Booking Flex</th><th>Booking NR</th><th>Expedia Flex</th><th>Expedia NR</th></tr></thead><tbody>
-          {matrixDiscountRows.map((item) => <tr key={item.discountId} className={!item.active ? "pricing-inactive-discount" : ""}>
-            <td><strong>{item.name}</strong>{!item.active && <span>Inativa</span>}</td><td>{percentageInput(item.discountPct)}%</td><td>{item.stackDescription}</td><td>{euro(item.directCents, property.currency)}</td><td>{euro(item.bookingFlexCents, property.currency)}</td><td>{euro(item.bookingNonRefundableCents, property.currency)}</td><td>{euro(item.expediaFlexCents, property.currency)}</td><td>{euro(item.expediaNonRefundableCents, property.currency)}</td>
-          </tr>)}
-          {!matrixDiscountRows.length && <tr><td colSpan={8} className="pricing-no-results">Este período não tem descontos.</td></tr>}
-        </tbody></table></div>
-      </article>
-
-      <article className="panel pricing-matrix-panel">
-        <div className="pricing-matrix-header"><div><h2>Matriz de preços por quarto</h2><p>Preços resultantes da estrutura do período selecionado.</p></div></div>
-        <div className="pricing-period-table-wrap"><table className="pricing-room-matrix"><thead><tr><th>Quarto</th><th>Direct Flex</th><th>Direct NR</th><th>OTA Flex público</th><th>OTA NR público</th><th>Menor Booking</th><th>Menor Expedia</th></tr></thead><tbody>
-          {matrixRows.map((row) => <tr key={row.roomTypeId} className={row.isReference ? "pricing-reference-row" : ""}><td><strong>{row.roomName}</strong>{row.isReference && <span className="pricing-reference-badge">Referência</span>}</td><td>{euro(row.directFlexCents, property.currency)}</td><td>{euro(row.directNonRefundableCents, property.currency)}</td><td>{euro(row.otaFlexCents, property.currency)}</td><td>{euro(row.otaNonRefundableCents, property.currency)}</td><td><strong>{euro(row.lowestBookingCents, property.currency)}</strong></td><td><strong>{euro(row.lowestExpediaCents, property.currency)}</strong></td></tr>)}
-        </tbody></table></div>
-        <div className="pricing-matrix-footnote">A construção do preço OTA absorve a maior Fidelização ativa e o Basic Deal ativo. Móveis acumula com Fidelização; Basic Deal acumula com Fidelização + Móveis; a campanha Booking acumula com Fidelização; campanha Expedia e Limited Time Deal são independentes; Last Minute OTA aplica-se ao menor preço OTA NR ativo.</div>
-      </article>
-    </>}
+    {roomPreviewRows.length > 0 && <article className="panel pricing-room-preview-panel">
+      <div className="panel-heading"><div><h2>Preços resultantes por quarto</h2><p>Pré-visualização do período atualmente aberto.</p></div></div>
+      <div className="pricing-table-wrap"><table className="pricing-room-preview"><thead><tr><th>Quarto</th><th>Direct Flex</th><th>Direct NR</th><th>OTA Flex</th><th>OTA NR</th><th>Menor Booking</th><th>Menor Expedia</th></tr></thead><tbody>
+        {roomPreviewRows.map((row) => <tr key={row.roomTypeId} className={row.isReference ? "pricing-reference-row" : ""}><td><strong>{row.roomName}</strong>{row.isReference && <span className="pricing-reference-badge">Referência</span>}</td><td>{euro(row.directFlexCents, property.currency)}</td><td>{euro(row.directNonRefundableCents, property.currency)}</td><td>{euro(row.otaFlexCents, property.currency)}</td><td>{euro(row.otaNonRefundableCents, property.currency)}</td><td>{euro(row.lowestBookingCents, property.currency)}</td><td>{euro(row.lowestExpediaCents, property.currency)}</td></tr>)}
+      </tbody></table></div>
+    </article>}
   </>;
 }
