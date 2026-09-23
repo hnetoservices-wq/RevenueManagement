@@ -1,10 +1,32 @@
 import type { RoomType } from "../../domain/models";
-import type { PriceManagementConfig, PricePeriod } from "./types";
+import type { OtaPricingSettings, PriceManagementConfig, PricePeriod } from "./types";
+
+export const DEFAULT_OTA_PRICING_SETTINGS: OtaPricingSettings = {
+  upliftPct: 20,
+  loyaltyDiscountPct: 15,
+  basicDealDiscountPct: 20,
+  nonRefundableDiscountPct: 10,
+};
 
 export interface RoomBasePriceRow {
   roomTypeId: string;
   roomName: string;
   inventoryCount: number;
+  basePriceCents: number;
+  isReference: boolean;
+}
+
+export interface PeriodReferenceRates {
+  directFlexCents: number;
+  directNonRefundableCents: number;
+  otaFlexCents: number;
+  otaNonRefundableCents: number;
+  otaAfterBaseDiscountsCents: number;
+}
+
+export interface PeriodRoomRateRow extends PeriodReferenceRates {
+  roomTypeId: string;
+  roomName: string;
   basePriceCents: number;
   isReference: boolean;
 }
@@ -42,6 +64,64 @@ export function projectPeriodRoomPrices(roomTypes: RoomType[], config: PriceMana
     room.id,
     projectRoomPriceFromReference(period.directFlexReferenceCents, config.basePricesCents[room.id] ?? 0, referenceBase),
   ]));
+}
+
+function discountFactor(percent: number): number {
+  return 1 - percent / 100;
+}
+
+export function validateOtaPricingSettings(settings: OtaPricingSettings): string | null {
+  const values = [settings.upliftPct, settings.loyaltyDiscountPct, settings.basicDealDiscountPct, settings.nonRefundableDiscountPct];
+  if (values.some((value) => !Number.isFinite(value) || value < 0)) return "Os parâmetros OTA não podem conter valores negativos.";
+  if (settings.loyaltyDiscountPct >= 100 || settings.basicDealDiscountPct >= 100 || settings.nonRefundableDiscountPct >= 100) return "Os descontos têm de ser inferiores a 100%.";
+  return null;
+}
+
+export function calculatePeriodReferenceRates(period: PricePeriod, settings: OtaPricingSettings): PeriodReferenceRates | null {
+  if (period.directFlexReferenceCents <= 0 || validateOtaPricingSettings(settings)) return null;
+  const loyaltyFactor = discountFactor(settings.loyaltyDiscountPct);
+  const basicFactor = discountFactor(settings.basicDealDiscountPct);
+  const nrFactor = discountFactor(settings.nonRefundableDiscountPct);
+  const otaFlexCents = Math.round(
+    period.directFlexReferenceCents * (1 + settings.upliftPct / 100) / (loyaltyFactor * basicFactor),
+  );
+  return {
+    directFlexCents: period.directFlexReferenceCents,
+    directNonRefundableCents: Math.round(period.directFlexReferenceCents * nrFactor),
+    otaFlexCents,
+    otaNonRefundableCents: Math.round(otaFlexCents * nrFactor),
+    otaAfterBaseDiscountsCents: Math.round(otaFlexCents * loyaltyFactor * basicFactor),
+  };
+}
+
+export function projectPeriodRoomRateRows(roomTypes: RoomType[], config: PriceManagementConfig, period: PricePeriod): PeriodRoomRateRow[] {
+  const referenceBaseCents = config.referenceRoomTypeId ? config.basePricesCents[config.referenceRoomTypeId] ?? 0 : 0;
+  const settings = config.otaSettings;
+  if (referenceBaseCents <= 0 || validateOtaPricingSettings(settings)) return [];
+
+  const loyaltyFactor = discountFactor(settings.loyaltyDiscountPct);
+  const basicFactor = discountFactor(settings.basicDealDiscountPct);
+  const nrFactor = discountFactor(settings.nonRefundableDiscountPct);
+  const directScale = period.directFlexReferenceCents / referenceBaseCents;
+  const otaReferenceCents = period.directFlexReferenceCents * (1 + settings.upliftPct / 100) / (loyaltyFactor * basicFactor);
+  const otaScale = otaReferenceCents / referenceBaseCents;
+
+  return roomTypes.map((room) => {
+    const basePriceCents = config.basePricesCents[room.id] ?? 0;
+    const directFlexCents = basePriceCents > 0 ? Math.round(basePriceCents * directScale) : 0;
+    const otaFlexCents = basePriceCents > 0 ? Math.round(basePriceCents * otaScale) : 0;
+    return {
+      roomTypeId: room.id,
+      roomName: room.canonicalName,
+      basePriceCents,
+      isReference: room.id === config.referenceRoomTypeId,
+      directFlexCents,
+      directNonRefundableCents: directFlexCents > 0 ? Math.round(directFlexCents * nrFactor) : 0,
+      otaFlexCents,
+      otaNonRefundableCents: otaFlexCents > 0 ? Math.round(otaFlexCents * nrFactor) : 0,
+      otaAfterBaseDiscountsCents: otaFlexCents > 0 ? Math.round(otaFlexCents * loyaltyFactor * basicFactor) : 0,
+    };
+  });
 }
 
 export function pricePeriodsOverlap(a: PricePeriod, b: PricePeriod): boolean {
