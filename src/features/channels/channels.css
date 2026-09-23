@@ -1,0 +1,38 @@
+.channel-settings-heading { align-items: flex-start; }
+.channel-help { display:flex; gap:14px; align-items:flex-start; margin-bottom:16px; }
+.channel-help strong { white-space:nowrap; }
+.channel-help span { color:#68737d; font-size:11px; line-height:1.55; }
+.channel-detected { margin-bottom:16px; }
+.channel-source-chips { display:flex; gap:8px; flex-wrap:wrap; }
+.channel-source-chips button { border:1px solid #d9dfe3; background:#f7f9fa; color:#36434d; border-radius:999px; padding:7px 11px; font-size:11px; font-weight:700; }
+.channel-rule-form { margin-bottom:16px; }
+.channel-form-grid { display:grid; grid-template-columns:repeat(3,minmax(180px,1fr)); gap:12px; }
+.channel-form-grid label { display:grid; gap:6px; }
+.channel-form-grid label > span { color:#68737d; font-size:10px; font-weight:700; }
+.channel-form-grid input { min-height:38px; border:1px solid #d9dfe3; border-radius:8px; padding:0 10px; background:white; color:#26343e; }
+.channel-alias-field { grid-column:span 2; }
+.channel-active-field { display:flex !important; align-items:center; gap:8px !important; align-self:end; min-height:38px; }
+.channel-active-field input { min-height:auto; width:16px; height:16px; }
+.channel-form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+.channel-rules-table td small { display:block; margin-top:3px; color:#8a9299; }
+.channel-row-actions { display:flex; gap:8px; }
+.channel-row-actions button { border:0; background:transparent; color:#1f6f68; font-weight:700; padding:0; }
+.channel-row-actions button:last-child { color:#a85049; }
+.channel-unconfigured-note { margin-bottom:12px; }
+.channel-unconfigured-note strong { margin-right:8px; }
+.channel-net-positive { color:#287a60; font-weight:800; }
+
+html[data-theme="dark"] .channel-help,
+html[data-theme="dark"] .channel-detected,
+html[data-theme="dark"] .channel-rule-form,
+html[data-theme="dark"] .channel-rules-table { background:#162127 !important; border-color:#2a3940 !important; }
+html[data-theme="dark"] .channel-help span,
+html[data-theme="dark"] .channel-form-grid label > span,
+html[data-theme="dark"] .channel-rules-table td small { color:#9eadaa !important; }
+html[data-theme="dark"] .channel-source-chips button,
+html[data-theme="dark"] .channel-form-grid input { background:#10191e !important; color:#e4ecea !important; border-color:#34434a !important; }
+
+@media(max-width:1000px){
+  .channel-form-grid { grid-template-columns:1fr 1fr; }
+  .channel-alias-field { grid-column:span 2; }
+}
