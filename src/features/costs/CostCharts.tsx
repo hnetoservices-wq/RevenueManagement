@@ -68,14 +68,6 @@ export function CostCharts({ expenses, salaries, periodExpenses, periodSalaries,
     .filter((item) => item.value > 0)
     .sort((a, b) => b.value - a.value), [categories, periodExpenses]);
 
-  const paymentData = useMemo(() => {
-    const paid = periodExpenses.filter((item) => item.paymentStatus === "paid").reduce((sum, item) => sum + item.grossCents, 0)
-      + periodSalaries.filter((item) => item.paymentStatus === "paid").reduce((sum, item) => sum + item.totalCostCents, 0);
-    const pending = periodExpenses.filter((item) => item.paymentStatus === "pending").reduce((sum, item) => sum + item.grossCents, 0)
-      + periodSalaries.filter((item) => item.paymentStatus === "pending").reduce((sum, item) => sum + item.totalCostCents, 0);
-    return [{ name: "Pago", value: paid }, { name: "Pendente", value: pending }].filter((item) => item.value > 0);
-  }, [periodExpenses, periodSalaries]);
-
   const compositionData = useMemo(() => {
     const operating = periodExpenses.reduce((sum, item) => sum + item.grossCents, 0);
     const payroll = periodSalaries.reduce((sum, item) => sum + item.totalCostCents, 0);
@@ -104,8 +96,8 @@ export function CostCharts({ expenses, salaries, periodExpenses, periodSalaries,
     </article>
 
     <article className="panel cost-chart-panel">
-      <div className="panel-heading"><div><h2>Estado dos pagamentos</h2><p>Pago vs ainda por pagar</p></div></div>
-      {paymentData.length ? <div className="cost-pie-wrap"><div className="cost-pie-chart"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={paymentData} dataKey="value" nameKey="name" innerRadius={54} outerRadius={82} paddingAngle={2}>{paymentData.map((item, index) => <Cell key={item.name} fill={COLORS[(index + 2) % COLORS.length]} />)}</Pie><Tooltip formatter={(value) => money(Number(value), currency)} /></PieChart></ResponsiveContainer></div><div className="cost-chart-legend">{paymentData.map((item, index) => <div key={item.name}><span style={{ background: COLORS[(index + 2) % COLORS.length] }} /><strong>{item.name}</strong><em>{money(item.value, currency)}</em></div>)}</div></div> : <p className="cost-empty">Sem pagamentos registados no período selecionado.</p>}
+      <div className="panel-heading"><div><h2>Despesas por categoria</h2><p>Peso de cada categoria nas despesas operacionais</p></div></div>
+      {categoryData.length ? <div className="cost-pie-wrap"><div className="cost-pie-chart"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={categoryData} dataKey="value" nameKey="category" innerRadius={54} outerRadius={82} paddingAngle={2}>{categoryData.map((item, index) => <Cell key={item.category} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={(value) => money(Number(value), currency)} /></PieChart></ResponsiveContainer></div><div className="cost-chart-legend">{categoryData.map((item, index) => <div key={item.category}><span style={{ background: COLORS[index % COLORS.length] }} /><strong>{item.category}</strong><em>{money(item.value, currency)}</em></div>)}</div></div> : <p className="cost-empty">Sem despesas por categoria no período selecionado.</p>}
     </article>
 
     <article className="panel cost-chart-panel cost-chart-wide">
