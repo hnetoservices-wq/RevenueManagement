@@ -32,6 +32,7 @@ import type {
 import { createRepository } from "./data/createRepository";
 import { DuplicateImportError } from "./data/repository";
 import { CostsPage } from "./features/costs/CostsPage";
+import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { AnalysisFilterBar } from "./features/filters/AnalysisFilterBar";
 import {
   DEFAULT_ANALYSIS_FILTERS,
@@ -324,30 +325,7 @@ function App() {
         <div className="workspace">
           {error && <div className="alert"><span>{error}</span><button onClick={() => setError(null)}>Dismiss</button></div>}
           {page !== "imports" && page !== "settings" && page !== "costs" && <AnalysisFilterBar property={property} reservations={reservations} filters={analysisFilters} setFilters={setAnalysisFilters} roomTypeRevenueEstimated={filteredAnalysis?.roomTypeRevenueEstimated ?? false} estimatedReservationCount={filteredAnalysis?.estimatedReservationCount ?? 0} />}
-          {page === "dashboard" ? (
-            <>
-              <div className="page-heading"><div><p className="eyebrow">Revenue overview</p><h1>Dashboard</h1><p>Stay-date performance and previous-year comparison.</p></div><DateFilters filters={filters} setFilters={setFilters} /></div>
-              {!imports.length ? <EmptyState onImport={() => void chooseFile()} /> : (
-                <>
-                  <section className="kpi-grid">{kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}</section>
-                  <section className="chart-grid">
-                    <article className="panel panel-wide">
-                      <PanelHeading title="Revenue and occupancy" subtitle={performance.length > 70 ? "Monthly view" : "Daily view"} />
-                      <div className="chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={performance} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}><CartesianGrid stroke="#e7e9ed" vertical={false} /><XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={22} /><YAxis yAxisId="revenue" tickFormatter={(value) => `€${value}`} tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><YAxis yAxisId="occupancy" orientation="right" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e5e7eb" }} formatter={(value, name) => name === "Occupancy" ? [`${Number(value).toFixed(1)}%`, name] : [`€${Number(value).toFixed(0)}`, name]} /><Legend /><Bar yAxisId="revenue" dataKey="revenue" name="Room revenue" fill="#cfe3df" radius={[4, 4, 0, 0]} /><Line yAxisId="occupancy" type="monotone" dataKey="occupancy" name="Occupancy" stroke="#1f6f68" strokeWidth={2.5} dot={false} /></ComposedChart></ResponsiveContainer></div>
-                    </article>
-                    <article className="panel">
-                      <PanelHeading title="Revenue by channel" subtitle={`${current.channels.length} active channels`} />
-                      <div className="channel-chart"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={current.channels} dataKey="roomRevenueCents" nameKey="channel" innerRadius={58} outerRadius={85} paddingAngle={2}>{current.channels.map((entry, index) => <Cell key={entry.channel} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={(value) => money(Number(value), analyticalProperty.currency)} /></PieChart></ResponsiveContainer><div className="channel-legend">{current.channels.slice(0, 5).map((channel, index) => <div key={channel.channel}><span style={{ background: COLORS[index % COLORS.length] }} /><strong>{channel.channel}</strong><em>{money(channel.roomRevenueCents, analyticalProperty.currency)}</em></div>)}</div></div>
-                    </article>
-                    <article className="panel">
-                      <PanelHeading title="Operational summary" subtitle="Selected stay dates" />
-                      <div className="summary-list"><SummaryRow label="Total revenue" value={money(current.totalRevenueCents, analyticalProperty.currency)} /><SummaryRow label="Extra revenue" value={money(current.extraRevenueCents, analyticalProperty.currency)} /><SummaryRow label="Tourist tax" value={money(current.touristTaxCents, analyticalProperty.currency)} /><SummaryRow label="Median lead time" value={`${number(current.medianLeadTime, 1)} days`} /><SummaryRow label="Median LOS" value={`${number(current.medianLengthOfStay, 1)} nights`} /><SummaryRow label="Cancellation rate" value={percent(current.cancellationRate)} /></div>
-                    </article>
-                  </section>
-                </>
-              )}
-            </>
-          ) : page === "summary" ? <ReportSummaryPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "occupancy" ? <OccupancyPage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "revenue" ? <RevenuePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "costs" ? <CostsPage property={property} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "settings" ? <SettingsPage property={property} importCount={imports.length} onSave={savePropertySetup} onSaveClosure={saveInventoryClosure} onDeleteClosure={deleteInventoryClosure} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
+          {page === "dashboard" ? <DashboardPage property={analyticalProperty} reservations={analyticalReservations} yearSourceReservations={reservations} filters={filters} setFilters={setFilters} hasImports={imports.length > 0} onImport={() => void chooseFile()} /> : page === "summary" ? <ReportSummaryPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "performance" ? <PerformancePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "occupancy" ? <OccupancyPage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "revenue" ? <RevenuePage property={analyticalProperty} reservations={analyticalReservations} coverageReservations={reservations} filters={filters} setFilters={setFilters} /> : page === "costs" ? <CostsPage property={property} /> : page === "pace" ? <PacePickupPage imports={imports} property={analyticalProperty} filters={filters} setFilters={setFilters} loadSnapshotReservations={loadFilteredSnapshotReservations} /> : page === "settings" ? <SettingsPage property={property} importCount={imports.length} onSave={savePropertySetup} onSaveClosure={saveInventoryClosure} onDeleteClosure={deleteInventoryClosure} /> : <ImportsPage imports={imports} onImport={() => void chooseFile()} property={property} filters={filters} setFilters={setFilters} />}
         </div>
       </main>
 
