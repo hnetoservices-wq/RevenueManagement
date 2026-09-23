@@ -64,6 +64,13 @@ export function BulkExpenseEntry({ propertyId, categories, suppliers, act }: Pro
     setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
   }
 
+  function selectSupplier(index:number,supplierId:string){
+    const supplier=suppliers.find(item=>item.id===supplierId);
+    update(index, supplier?.defaultCategoryId
+      ? { supplierId, categoryId:supplier.defaultCategoryId }
+      : { supplierId });
+  }
+
   function addRow() {
     setRows((current) => [...current, cloneRow(current[current.length - 1] ?? blankRow(categories[0]?.id))]);
   }
@@ -112,7 +119,7 @@ export function BulkExpenseEntry({ propertyId, categories, suppliers, act }: Pro
           <label>Data<input type="date" value={row.date} onChange={(event) => update(index, { date: event.target.value })} /></label>
           <label>Descrição<input value={row.description} placeholder="Opcional" onChange={(event) => update(index, { description: event.target.value })} /></label>
           <label>Categoria<select value={row.categoryId} onChange={(event) => update(index, { categoryId: event.target.value })}><option value="">Selecionar</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-          <label>Fornecedor<select value={row.supplierId} onChange={(event) => update(index, { supplierId: event.target.value })}><option value="">Sem fornecedor</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
+          <label>Fornecedor<select value={row.supplierId} onChange={(event) => selectSupplier(index,event.target.value)}><option value="">Sem fornecedor</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
           <label className="bulk-expense-amount">Valor (€)<input inputMode="decimal" value={row.amount} onChange={(event) => update(index, { amount: event.target.value })} /></label>
           <button type="button" className="bulk-expense-remove" disabled={rows.length === 1} onClick={() => removeRow(index)}>Remover</button>
         </div>
