@@ -8,6 +8,7 @@
   align-items: flex-end;
 }
 
+.distribution-summary-grid,
 .revenue-kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -107,6 +108,11 @@
   color: #8a9299;
 }
 
+.channel-net-positive {
+  color: #287a60 !important;
+  font-weight: 800;
+}
+
 .revenue-lower-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(330px, .7fr);
@@ -164,6 +170,7 @@
 }
 
 @media (max-width: 1250px) {
+  .distribution-summary-grid,
   .revenue-kpi-grid {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
   }
@@ -180,6 +187,7 @@
     align-items: stretch;
   }
 
+  .distribution-summary-grid,
   .revenue-kpi-grid {
     grid-template-columns: 1fr;
   }
