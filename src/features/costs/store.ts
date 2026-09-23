@@ -19,7 +19,7 @@ function browserState(): BrowserCostState {
   const parsed = JSON.parse(raw) as Partial<BrowserCostState>;
   return {
     categories: parsed.categories ?? [],
-    suppliers: parsed.suppliers ?? [],
+    suppliers: (parsed.suppliers ?? []).map((supplier) => ({ ...supplier, defaultCategoryId: supplier.defaultCategoryId ?? null })),
     expenses: parsed.expenses ?? [],
     salaries: parsed.salaries ?? [],
   };
@@ -49,6 +49,7 @@ export class CostsStore {
         id TEXT PRIMARY KEY,
         property_id TEXT NOT NULL,
         name TEXT NOT NULL,
+        default_category_id TEXT,
         tax_id TEXT NOT NULL DEFAULT '',
         contact_name TEXT NOT NULL DEFAULT '',
         email TEXT NOT NULL DEFAULT '',
@@ -59,6 +60,10 @@ export class CostsStore {
         notes TEXT NOT NULL DEFAULT '',
         active INTEGER NOT NULL DEFAULT 1
       )`);
+      const supplierColumns = await this.db.select<SqlRow[]>("PRAGMA table_info(suppliers)");
+      if (!supplierColumns.some((row) => String(row.name) === "default_category_id")) {
+        await this.db.execute("ALTER TABLE suppliers ADD COLUMN default_category_id TEXT");
+      }
       await this.db.execute(`CREATE TABLE IF NOT EXISTS expense_records (
         id TEXT PRIMARY KEY,
         property_id TEXT NOT NULL,
@@ -116,9 +121,16 @@ export class CostsStore {
 
   async deleteCategory(propertyId: string, id: string): Promise<void> {
     await this.initialize();
-    if (!isTauri()) { const s=browserState(); if(s.expenses.some(x=>x.categoryId===id)) throw new Error("A categoria está a ser utilizada por despesas."); s.categories=s.categories.filter(x=>!(x.propertyId===propertyId&&x.id===id)); persistBrowser(s); return; }
+    if (!isTauri()) {
+      const s=browserState();
+      if(s.expenses.some(x=>x.categoryId===id)) throw new Error("A categoria está a ser utilizada por despesas.");
+      if(s.suppliers.some(x=>x.propertyId===propertyId&&x.defaultCategoryId===id)) throw new Error("A categoria está definida como predefinição de um fornecedor.");
+      s.categories=s.categories.filter(x=>!(x.propertyId===propertyId&&x.id===id)); persistBrowser(s); return;
+    }
     const used=await (await this.database()).select<SqlRow[]>("SELECT COUNT(*) AS n FROM expense_records WHERE property_id=$1 AND category_id=$2",[propertyId,id]);
     if(Number(used[0]?.n ?? 0)>0) throw new Error("A categoria está a ser utilizada por despesas.");
+    const supplierUsed=await (await this.database()).select<SqlRow[]>("SELECT COUNT(*) AS n FROM suppliers WHERE property_id=$1 AND default_category_id=$2",[propertyId,id]);
+    if(Number(supplierUsed[0]?.n ?? 0)>0) throw new Error("A categoria está definida como predefinição de um fornecedor.");
     await (await this.database()).execute("DELETE FROM cost_categories WHERE property_id=$1 AND id=$2",[propertyId,id]);
   }
 
@@ -126,15 +138,15 @@ export class CostsStore {
     await this.initialize();
     if (!isTauri()) return browserState().suppliers.filter((x)=>x.propertyId===propertyId).sort((a,b)=>a.name.localeCompare(b.name));
     const rows=await (await this.database()).select<SqlRow[]>("SELECT * FROM suppliers WHERE property_id=$1 ORDER BY name",[propertyId]);
-    return rows.map((r)=>({id:String(r.id),propertyId:String(r.property_id),name:String(r.name),taxId:String(r.tax_id??""),contactName:String(r.contact_name??""),email:String(r.email??""),phone:String(r.phone??""),address:String(r.address??""),website:String(r.website??""),paymentTermsDays:r.payment_terms_days===null?null:Number(r.payment_terms_days),notes:String(r.notes??""),active:Boolean(r.active)}));
+    return rows.map((r)=>({id:String(r.id),propertyId:String(r.property_id),name:String(r.name),defaultCategoryId:r.default_category_id?String(r.default_category_id):null,taxId:String(r.tax_id??""),contactName:String(r.contact_name??""),email:String(r.email??""),phone:String(r.phone??""),address:String(r.address??""),website:String(r.website??""),paymentTermsDays:r.payment_terms_days===null?null:Number(r.payment_terms_days),notes:String(r.notes??""),active:Boolean(r.active)}));
   }
 
   async saveSupplier(item: Supplier): Promise<void> {
     await this.initialize();
     if(!isTauri()){const s=browserState();const i=s.suppliers.findIndex(x=>x.id===item.id);if(i<0)s.suppliers.push(item);else s.suppliers[i]=item;persistBrowser(s);return;}
-    await (await this.database()).execute(`INSERT INTO suppliers (id,property_id,name,tax_id,contact_name,email,phone,address,website,payment_terms_days,notes,active)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-      ON CONFLICT(id) DO UPDATE SET name=excluded.name,tax_id=excluded.tax_id,contact_name=excluded.contact_name,email=excluded.email,phone=excluded.phone,address=excluded.address,website=excluded.website,payment_terms_days=excluded.payment_terms_days,notes=excluded.notes,active=excluded.active`,[item.id,item.propertyId,item.name.trim(),item.taxId.trim(),item.contactName.trim(),item.email.trim(),item.phone.trim(),item.address.trim(),item.website.trim(),item.paymentTermsDays,item.notes.trim(),item.active?1:0]);
+    await (await this.database()).execute(`INSERT INTO suppliers (id,property_id,name,default_category_id,tax_id,contact_name,email,phone,address,website,payment_terms_days,notes,active)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      ON CONFLICT(id) DO UPDATE SET name=excluded.name,default_category_id=excluded.default_category_id,tax_id=excluded.tax_id,contact_name=excluded.contact_name,email=excluded.email,phone=excluded.phone,address=excluded.address,website=excluded.website,payment_terms_days=excluded.payment_terms_days,notes=excluded.notes,active=excluded.active`,[item.id,item.propertyId,item.name.trim(),item.defaultCategoryId,item.taxId.trim(),item.contactName.trim(),item.email.trim(),item.phone.trim(),item.address.trim(),item.website.trim(),item.paymentTermsDays,item.notes.trim(),item.active?1:0]);
   }
 
   async deleteSupplier(propertyId:string,id:string):Promise<void>{
