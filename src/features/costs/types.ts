@@ -12,6 +12,7 @@ export interface Supplier {
   id: string;
   propertyId: string;
   name: string;
+  defaultCategoryId: string | null;
   taxId: string;
   contactName: string;
   email: string;
