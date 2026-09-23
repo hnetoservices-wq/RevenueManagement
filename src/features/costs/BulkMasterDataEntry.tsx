@@ -24,18 +24,10 @@ interface CategoryDraft {
 }
 
 interface SupplierDraft {
+  key: string;
   name: string;
-  categoryName: string;
-  defaultCategoryId: string | null;
-  taxId: string;
-  contactName: string;
-  email: string;
-  phone: string;
-  website: string;
-  paymentTermsDays: number | null;
-  address: string;
+  defaultCategoryId: string;
   notes: string;
-  issue: string | null;
 }
 
 const normalize = (value: string) => value
@@ -56,11 +48,6 @@ function parseRows(text: string): string[][] {
 function looksLikeCategoryHeader(row: string[]): boolean {
   const first = normalize(row[0] ?? "");
   return first === "nome" || first === "categoria" || first === "name" || first === "category";
-}
-
-function looksLikeSupplierHeader(row: string[]): boolean {
-  const first = normalize(row[0] ?? "");
-  return first === "nome" || first === "fornecedor" || first === "supplier" || first === "name";
 }
 
 export function BulkCategoryEntry({ propertyId, categories, act }: CategoryProps) {
@@ -124,47 +111,49 @@ export function BulkCategoryEntry({ propertyId, categories, act }: CategoryProps
   </div>;
 }
 
+function blankSupplier(): SupplierDraft {
+  return {
+    key: crypto.randomUUID(),
+    name: "",
+    defaultCategoryId: "",
+    notes: "",
+  };
+}
+
 export function BulkSupplierEntry({ propertyId, categories, suppliers, act }: SupplierProps) {
-  const [text, setText] = useState("");
+  const [rows, setRows] = useState<SupplierDraft[]>(() => [blankSupplier()]);
 
-  const categoryByName = useMemo(() => new Map(categories.map((category) => [normalize(category.name), category])), [categories]);
-  const rows = useMemo<SupplierDraft[]>(() => {
-    const parsed = parseRows(text);
-    const data = parsed.length && looksLikeSupplierHeader(parsed[0]) ? parsed.slice(1) : parsed;
-    const existing = new Set(suppliers.map((supplier) => normalize(supplier.name)));
-    const seen = new Set<string>();
-    return data.map((row) => {
-      const name = (row[0] ?? "").trim();
-      const categoryName = (row[1] ?? "").trim();
-      const category = categoryName ? categoryByName.get(normalize(categoryName)) : undefined;
-      const paymentRaw = (row[7] ?? "").trim();
-      const paymentNumber = paymentRaw === "" ? null : Number(paymentRaw);
-      const key = normalize(name);
-      let issue: string | null = null;
-      if (!name) issue = "Nome em falta";
-      else if (existing.has(key)) issue = "Já existe";
-      else if (seen.has(key)) issue = "Duplicado neste lote";
-      else if (categoryName && !category) issue = `Categoria desconhecida: ${categoryName}`;
-      else if (paymentNumber !== null && (!Number.isInteger(paymentNumber) || paymentNumber < 0)) issue = "Prazo de pagamento inválido";
-      seen.add(key);
-      return {
-        name,
-        categoryName,
-        defaultCategoryId: category?.id ?? null,
-        taxId: (row[2] ?? "").trim(),
-        contactName: (row[3] ?? "").trim(),
-        email: (row[4] ?? "").trim(),
-        phone: (row[5] ?? "").trim(),
-        website: (row[6] ?? "").trim(),
-        paymentTermsDays: paymentNumber,
-        address: (row[8] ?? "").trim(),
-        notes: (row[9] ?? "").trim(),
-        issue,
-      };
-    });
-  }, [text, suppliers, categoryByName]);
+  const existingNames = useMemo(() => new Set(suppliers.map((supplier) => normalize(supplier.name))), [suppliers]);
+  const duplicateNames = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      const key = normalize(row.name);
+      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([key]) => key));
+  }, [rows]);
 
-  const validRows = rows.filter((row) => !row.issue);
+  function issueFor(row: SupplierDraft): string | null {
+    const key = normalize(row.name);
+    if (!key) return null;
+    if (existingNames.has(key)) return "Já existe";
+    if (duplicateNames.has(key)) return "Duplicado neste lote";
+    return null;
+  }
+
+  const validRows = rows.filter((row) => row.name.trim() && !issueFor(row));
+
+  function updateRow(index: number, patch: Partial<SupplierDraft>) {
+    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
+  }
+
+  function addRow() {
+    setRows((current) => [...current, blankSupplier()]);
+  }
+
+  function removeRow(index: number) {
+    setRows((current) => current.length === 1 ? [blankSupplier()] : current.filter((_, rowIndex) => rowIndex !== index));
+  }
 
   async function saveAll() {
     if (!validRows.length) return;
@@ -173,41 +162,49 @@ export function BulkSupplierEntry({ propertyId, categories, suppliers, act }: Su
         await costsStore.saveSupplier({
           id: crypto.randomUUID(),
           propertyId,
-          name: row.name,
-          defaultCategoryId: row.defaultCategoryId,
-          taxId: row.taxId,
-          contactName: row.contactName,
-          email: row.email,
-          phone: row.phone,
-          website: row.website,
-          paymentTermsDays: row.paymentTermsDays,
-          address: row.address,
-          notes: row.notes,
+          name: row.name.trim(),
+          defaultCategoryId: row.defaultCategoryId || null,
+          taxId: "",
+          contactName: "",
+          email: "",
+          phone: "",
+          website: "",
+          paymentTermsDays: null,
+          address: "",
+          notes: row.notes.trim(),
           active: true,
         });
       }
     });
-    setText("");
+    setRows([blankSupplier()]);
   }
 
   return <div className="bulk-master-entry supplier-bulk-entry">
     <div className="bulk-expense-help">
-      <strong>Colar fornecedores em massa</strong>
-      <span>Ordem das colunas: <b>Nome | Categoria | NIF | Contacto | Email | Telefone | Website | Prazo (dias) | Morada | Notas</b>. Pode deixar colunas vazias ou colar apenas nomes.</span>
+      <strong>Entrada rápida de fornecedores</strong>
+      <span>Crie apenas o essencial agora. Os restantes dados do fornecedor podem ser preenchidos mais tarde através de <b>Editar</b>.</span>
     </div>
-    <textarea
-      className="bulk-master-paste"
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      placeholder={"Nome\tCategoria\tNIF\tContacto\tEmail\tTelefone\tWebsite\tPrazo (dias)\tMorada\tNotas"}
-    />
-    {rows.length > 0 && <div className="bulk-master-preview">
-      <div className="bulk-master-summary"><strong>{validRows.length} prontos a guardar</strong><span>{rows.length - validRows.length} ignorados</span></div>
-      <div className="bulk-master-preview-scroll"><table><thead><tr><th>Fornecedor</th><th>Categoria</th><th>NIF</th><th>Estado</th></tr></thead><tbody>
-        {rows.slice(0, 10).map((row, index) => <tr key={`${row.name}-${index}`}><td><strong>{row.name || "—"}</strong><br/><small>{row.email}</small></td><td>{row.categoryName || "—"}</td><td>{row.taxId || "—"}</td><td className={row.issue ? "bulk-invalid" : "bulk-valid"}>{row.issue ?? "Pronto"}</td></tr>)}
-      </tbody></table></div>
-      {rows.length > 10 && <small>Pré-visualização dos primeiros 10 de {rows.length} fornecedores.</small>}
-    </div>}
-    <div className="bulk-master-actions"><button type="button" className="secondary-button" disabled={!text} onClick={() => setText("")}>Limpar</button><button type="button" className="primary-button" disabled={!validRows.length} onClick={() => void saveAll()}>Guardar {validRows.length || ""} fornecedores</button></div>
+
+    <div className="supplier-bulk-list">
+      {rows.map((row, index) => {
+        const issue = issueFor(row);
+        return <div className="supplier-bulk-row" key={row.key}>
+          <span className="bulk-expense-index">{index + 1}</span>
+          <label>Nome<input value={row.name} onChange={(event) => updateRow(index, { name: event.target.value })} /></label>
+          <label>Categoria<select value={row.defaultCategoryId} onChange={(event) => updateRow(index, { defaultCategoryId: event.target.value })}><option value="">Sem categoria predefinida</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+          <label>Notas<input value={row.notes} onChange={(event) => updateRow(index, { notes: event.target.value })} /></label>
+          <div className="supplier-bulk-row-actions">
+            {issue && <span className="bulk-invalid">{issue}</span>}
+            <button type="button" className="bulk-expense-remove" onClick={() => removeRow(index)}>Remover</button>
+          </div>
+        </div>;
+      })}
+    </div>
+
+    <div className="bulk-master-actions supplier-bulk-actions">
+      <button type="button" className="secondary-button" onClick={addRow}>+ Adicionar entrada</button>
+      <span>{validRows.length} {validRows.length === 1 ? "fornecedor pronto" : "fornecedores prontos"}</span>
+      <button type="button" className="primary-button" disabled={!validRows.length} onClick={() => void saveAll()}>Guardar {validRows.length || ""} fornecedores</button>
+    </div>
   </div>;
 }
