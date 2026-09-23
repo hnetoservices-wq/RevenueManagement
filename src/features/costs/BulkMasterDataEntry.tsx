@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import Papa from "papaparse";
 import { costsStore } from "./store";
 import type { CostCategory, Supplier } from "./types";
+import "./bulkSupplier.css";
 
 interface CommonProps {
   propertyId: string;
