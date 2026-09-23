@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   Bar,
@@ -17,6 +17,10 @@ import {
 import { parseIsoDate } from "../../domain/dates";
 import type { DashboardFilters, IsoDate, Property, Reservation } from "../../domain/models";
 import { BookingActivityPage } from "../booking/BookingActivityPage";
+import { calculateDistributionCosts } from "../channels/commission";
+import { ChannelCommissionPanel } from "../channels/ChannelCommissionPanel";
+import { channelCommissionStore } from "../channels/store";
+import type { ChannelCommissionRule } from "../channels/types";
 import type { PerformanceComparisonMode } from "../performance/performance";
 import { calculateRevenueAnalysis } from "./revenue";
 import "./revenue.css";
@@ -29,7 +33,7 @@ interface Props {
   setFilters: (filters: DashboardFilters) => void;
 }
 
-type RevenueView = "stay" | "booking";
+type RevenueView = "stay" | "booking" | "channels";
 
 const MIX_COLORS = ["#1f6f68", "#c08a3e", "#718096"];
 
@@ -65,21 +69,48 @@ function DateFilters({ filters, setFilters }: { filters: DashboardFilters; setFi
   return <div className="filters"><label>From<input type="date" value={filters.startDate} onChange={(event) => setFilters({ ...filters, startDate: event.target.value as IsoDate })} /></label><label>To<input type="date" value={filters.endDate} onChange={(event) => setFilters({ ...filters, endDate: event.target.value as IsoDate })} /></label><label>Revenue<select value={filters.revenueBasis} onChange={(event) => setFilters({ ...filters, revenueBasis: event.target.value as DashboardFilters["revenueBasis"] })}><option value="inclusive">Incl. tax</option><option value="exclusive">Excl. tax</option></select></label></div>;
 }
 
+function RevenueTabs({ view, setView }: { view: RevenueView; setView: (view: RevenueView) => void }) {
+  return <div className="revenue-view-tabs" role="tablist" aria-label="Revenue analysis mode">
+    <button type="button" className={view === "stay" ? "active" : ""} onClick={() => setView("stay")}>Stay-date Revenue</button>
+    <button type="button" className={view === "booking" ? "active" : ""} onClick={() => setView("booking")}>Booking Activity</button>
+    <button type="button" className={view === "channels" ? "active" : ""} onClick={() => setView("channels")}>Canais e comissões</button>
+  </div>;
+}
+
 export function RevenuePage({ property, reservations, coverageReservations = reservations, filters, setFilters }: Props) {
   const [view, setView] = useState<RevenueView>("stay");
   const [comparisonMode, setComparisonMode] = useState<PerformanceComparisonMode>("previous_year");
+  const [commissionRules, setCommissionRules] = useState<ChannelCommissionRule[]>([]);
+
+  const refreshCommissionRules = async () => {
+    await channelCommissionStore.initialize();
+    setCommissionRules(await channelCommissionStore.list(property.id));
+  };
+
+  useEffect(() => {
+    void refreshCommissionRules();
+  }, [property.id]);
+
   const analysis = useMemo(
     () => calculateRevenueAnalysis(property, reservations, filters, comparisonMode, coverageReservations),
     [property, reservations, coverageReservations, filters, comparisonMode],
   );
+  const distribution = useMemo(
+    () => calculateDistributionCosts(reservations, filters, commissionRules),
+    [reservations, filters, commissionRules],
+  );
 
   if (view === "booking") {
     return <>
-      <div className="revenue-view-tabs" role="tablist" aria-label="Revenue analysis mode">
-        <button type="button" onClick={() => setView("stay")}>Stay-date Revenue</button>
-        <button type="button" className="active" onClick={() => setView("booking")}>Booking Activity</button>
-      </div>
+      <RevenueTabs view={view} setView={setView} />
       <BookingActivityPage property={property} reservations={reservations} coverageReservations={coverageReservations} />
+    </>;
+  }
+
+  if (view === "channels") {
+    return <>
+      <RevenueTabs view={view} setView={setView} />
+      <ChannelCommissionPanel property={property} reservations={coverageReservations} rules={commissionRules} onRulesChanged={refreshCommissionRules} />
     </>;
   }
 
@@ -97,10 +128,7 @@ export function RevenuePage({ property, reservations, coverageReservations = res
   ];
 
   return <>
-    <div className="revenue-view-tabs" role="tablist" aria-label="Revenue analysis mode">
-      <button type="button" className="active" onClick={() => setView("stay")}>Stay-date Revenue</button>
-      <button type="button" onClick={() => setView("booking")}>Booking Activity</button>
-    </div>
+    <RevenueTabs view={view} setView={setView} />
 
     <div className="page-heading revenue-heading">
       <div><p className="eyebrow">Commercial analysis</p><h1>Revenue</h1><p>Analyse room revenue, rate, revenue mix, and channel contribution across the selected stay dates.</p></div>
@@ -112,6 +140,14 @@ export function RevenuePage({ property, reservations, coverageReservations = res
     {cancelledOnly && <div className="revenue-notice"><strong>Cancelled-only filter</strong><span>Cancelled reservations remain excluded from room revenue, ADR, RevPAR, extras, tourist tax, and total revenue. Use Active only or All statuses for operational revenue analysis.</span></div>}
 
     {comparisonMode !== "none" && analysis.comparisonCoverage && !analysis.comparisonReliable && <div className="performance-coverage-notice coverage-insufficient"><strong>Comparison data is insufficient</strong><span>Only {percent(analysis.comparisonCoverage.coverage)} of the requested comparison period is covered. Headline revenue deltas require at least 80% coverage; reliable monthly segments may still compare individually.</span></div>}
+
+    {distribution.unconfiguredRevenueCents > 0 && <div className="revenue-notice channel-unconfigured-note"><strong>Comissões por configurar</strong><span>{money(distribution.unconfiguredRevenueCents, property.currency)} de receita de quartos pertence a canais sem regra de comissão. Está temporariamente a ser calculada com comissão de 0%.</span></div>}
+
+    <section className="distribution-summary-grid">
+      <article className="kpi-card"><div className="kpi-label">Receita bruta de quartos</div><strong>{money(distribution.grossRoomRevenueCents, property.currency)}</strong><span className="neutral">Antes de custos de distribuição</span></article>
+      <article className="kpi-card"><div className="kpi-label">Custos de distribuição</div><strong>{money(distribution.commissionCents, property.currency)}</strong><span className="negative">Taxa efetiva {percent(distribution.effectiveCommissionRate)}</span></article>
+      <article className="kpi-card"><div className="kpi-label">Receita líquida de quartos</div><strong className="channel-net-positive">{money(distribution.netRoomRevenueCents, property.currency)}</strong><span className="neutral">Bruta menos comissões</span></article>
+    </section>
 
     <section className="revenue-kpi-grid">
       {kpis.map((kpi) => <article className="kpi-card" key={kpi.label}><div className="kpi-label">{kpi.label}</div><strong>{kpi.value}</strong><span className={tone(kpi.delta)}>{comparison ? (kpi.delta === null ? "No comparable base" : `${signed(kpi.delta, 1)}% vs ${comparisonName}`) : comparisonMode === "none" ? "No comparison" : "Insufficient comparison data"}</span></article>)}
@@ -130,8 +166,8 @@ export function RevenuePage({ property, reservations, coverageReservations = res
     </section>
 
     <article className="panel revenue-channel-panel">
-      <div className="panel-heading"><div><h2>Channel contribution</h2><p>Exact room-revenue contribution from active reservations in the selected period.</p></div></div>
-      <div className="revenue-table-wrap"><table><thead><tr><th>Channel</th><th>Room revenue</th><th>Share</th><th>Reservations</th><th>Room nights</th><th>ADR</th></tr></thead><tbody>{analysis.channels.map((row) => <tr key={row.channel}><td><strong>{row.channel}</strong></td><td><strong>{money(row.roomRevenueCents, property.currency)}</strong></td><td>{percent(row.share)}</td><td>{number(row.reservations)}</td><td>{number(row.roomNightsSold)}</td><td>{money(row.adrCents, property.currency)}</td></tr>)}</tbody></table></div>
+      <div className="panel-heading"><div><h2>Contribuição por canal</h2><p>Receita bruta, custos de distribuição e receita líquida no período selecionado.</p></div></div>
+      <div className="revenue-table-wrap"><table><thead><tr><th>Canal / grupo</th><th>Receita bruta</th><th>Comissão efetiva</th><th>Custo distribuição</th><th>Receita líquida</th><th>Reservas</th><th>Noites</th><th>Tarifa média diária</th></tr></thead><tbody>{distribution.rows.map((row) => <tr key={row.groupName}><td><strong>{row.groupName}</strong>{!row.configured && <small className="channel-rule-aliases">Sem regra configurada</small>}</td><td><strong>{money(row.grossRoomRevenueCents, property.currency)}</strong></td><td>{percent(row.effectiveCommissionRate)}</td><td className="negative">{money(row.commissionCents, property.currency)}</td><td className="channel-net-positive">{money(row.netRoomRevenueCents, property.currency)}</td><td>{number(row.reservations)}</td><td>{number(row.roomNightsSold)}</td><td>{money(row.adrCents, property.currency)}</td></tr>)}</tbody></table></div>
     </article>
 
     <section className="revenue-lower-grid">
