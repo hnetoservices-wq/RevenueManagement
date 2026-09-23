@@ -4,6 +4,7 @@ import { YearComparisonPicker } from "../comparison/YearComparisonPicker";
 import { comparisonYearsFromDates, keepAvailableComparisonYears } from "../comparison/yearComparison";
 import { BulkExpenseEntry } from "./BulkExpenseEntry";
 import { CostCharts } from "./CostCharts";
+import { CostCategoriesTab, CostSuppliersTab } from "./CostMasterDataTabs";
 import { costsStore } from "./store";
 import {
   calculateCostSummary,
@@ -19,16 +20,12 @@ type Tab = "resumo" | "despesas" | "salarios" | "fornecedores" | "categorias";
 type CostSummary = ReturnType<typeof calculateCostSummary>;
 interface YearCostComparison { year:number; month:string; summary:CostSummary; categoryTotals:Map<string,number> }
 
-type SupplierSortKey = "name" | "category" | "contact" | "taxId";
-type SortDirection = "asc" | "desc";
-
 const euro=(cents:number)=>new Intl.NumberFormat("pt-PT",{style:"currency",currency:"EUR"}).format(cents/100);
 const toCents=(value:string)=>Math.round((Number(value.replace(",","."))||0)*100);
 const toAmount=(cents:number)=>String((cents/100).toFixed(2));
 const signed=(value:number)=>`${value>0?"+":value<0?"−":""}${new Intl.NumberFormat("pt-PT",{maximumFractionDigits:1}).format(Math.abs(value))}%`;
 function relativeDelta(current:number,comparison:number){return comparison===0?null:((current-comparison)/Math.abs(comparison))*100}
 function deltaTone(value:number|null){return value===null||value===0?"neutral":value>0?"negative":"positive"}
-function normalizedSearch(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("pt-PT").trim()}
 
 export function CostsPage({ property }: { property: Property }) {
   const [tab,setTab]=useState<Tab>("resumo");
@@ -109,8 +106,8 @@ export function CostsPage({ property }: { property: Property }) {
       <CostCharts expenses={expenses} salaries={salaries} periodExpenses={filteredExpenses} periodSalaries={filteredSalaries} categories={categories} baseYear={baseYear} comparisonYears={comparisonYears} categoryFilter={categoryFilter} currency={property.currency}/>
       <article className="panel"><h2>Custos por categoria</h2>{categoryTotals.length?<div className="cost-category-summary">{categoryTotals.map(x=><div key={x.id}><span>{x.name}</span><strong>{euro(x.total)}</strong>{comparisons.length>0&&<small className="multi-year-deltas">{comparisons.map(c=>{const other=c.categoryTotals.get(x.id)??0;const delta=relativeDelta(x.total,other);return <span key={c.year} className={deltaTone(delta)}>{c.year}: {other?`${euro(other)} · ${delta===null?"—":signed(delta)}`:"sem custo registado"}</span>})}</small>}</div>)}</div>:<p className="cost-empty">Sem custos para o período selecionado.</p>}</article>
     </>}
-    {tab==="categorias"&&<CategoriesTab propertyId={property.id} categories={categories} act={act}/>} 
-    {tab==="fornecedores"&&<SuppliersTab propertyId={property.id} suppliers={suppliers} categories={categories} act={act}/>} 
+    {tab==="categorias"&&<CostCategoriesTab propertyId={property.id} categories={categories} act={act}/>} 
+    {tab==="fornecedores"&&<CostSuppliersTab propertyId={property.id} suppliers={suppliers} categories={categories} act={act}/>} 
     {tab==="despesas"&&<ExpensesTab propertyId={property.id} categories={categories} suppliers={suppliers} rows={filteredExpenses} categoryName={categoryName} supplierName={supplierName} act={act}/>} 
     {tab==="salarios"&&<SalariesTab propertyId={property.id} rows={filteredSalaries} act={act}/>} 
   </>;
@@ -118,83 +115,6 @@ export function CostsPage({ property }: { property: Property }) {
 
 function CostKpi({label,value,comparisons}:{label:string;value:string;comparisons:{year:number;value:number|null}[]}){
   return <article className="kpi-card"><div className="kpi-label">{label}</div><strong>{value}</strong>{comparisons.length?<div className="multi-year-deltas">{comparisons.map(x=><span key={x.year} className={deltaTone(x.value)}>{x.year}: {x.value===null?"sem base comparável":signed(x.value)}</span>)}</div>:<span className="neutral">Sem comparação</span>}</article>;
-}
-
-function CategoriesTab({propertyId,categories,act}:{propertyId:string;categories:CostCategory[];act:(w:()=>Promise<void>)=>Promise<void>}){
-  const [editing,setEditing]=useState<CostCategory|null>(null);
-  const [name,setName]=useState("");
-  const [description,setDescription]=useState("");
-  function load(x?:CostCategory){setEditing(x??null);setName(x?.name??"");setDescription(x?.description??"");}
-  return <div className="cost-two-column">
-    <article className="panel"><h2>{editing?"Editar categoria":"Nova categoria"}</h2><div className="cost-form"><label>Nome<input value={name} onChange={e=>setName(e.target.value)}/></label><label>Descrição<textarea value={description} onChange={e=>setDescription(e.target.value)}/></label><button className="primary-button" disabled={!name.trim()} onClick={()=>void act(async()=>{await costsStore.saveCategory({id:editing?.id??crypto.randomUUID(),propertyId,name:name.trim(),description:description.trim(),active:true});load();})}>Guardar</button>{editing&&<button className="secondary-button" onClick={()=>load()}>Cancelar</button>}</div></article>
-    <article className="panel cost-table"><table><thead><tr><th>Categoria</th><th>Descrição</th><th></th></tr></thead><tbody>{categories.map(x=><tr key={x.id}><td><strong>{x.name}</strong></td><td>{x.description||"—"}</td><td><button onClick={()=>load(x)}>Editar</button><button onClick={()=>void act(()=>costsStore.deleteCategory(propertyId,x.id))}>Remover</button></td></tr>)}</tbody></table></article>
-  </div>;
-}
-
-function SuppliersTab({propertyId,suppliers,categories,act}:{propertyId:string;suppliers:Supplier[];categories:CostCategory[];act:(w:()=>Promise<void>)=>Promise<void>}){
-  const empty:Supplier={id:"",propertyId,name:"",defaultCategoryId:null,taxId:"",contactName:"",email:"",phone:"",address:"",website:"",paymentTermsDays:null,notes:"",active:true};
-  const [f,setF]=useState<Partial<Supplier>>(empty);
-  const [query,setQuery]=useState("");
-  const [sortKey,setSortKey]=useState<SupplierSortKey>("name");
-  const [sortDirection,setSortDirection]=useState<SortDirection>("asc");
-  const edit=(x?:Supplier)=>setF(x??empty);
-  const field=(k:keyof Supplier)=>(e:any)=>setF(v=>({...v,[k]:e.target.value}));
-  const categoryName=(id:string|null|undefined)=>categories.find(category=>category.id===id)?.name??"—";
-
-  const visibleSuppliers=useMemo(()=>{
-    const needle=normalizedSearch(query);
-    const filtered=suppliers.filter(supplier=>{
-      if(!needle)return true;
-      return [supplier.name,categoryName(supplier.defaultCategoryId),supplier.contactName,supplier.email,supplier.phone,supplier.taxId]
-        .some(value=>normalizedSearch(value??"").includes(needle));
-    });
-    const valueFor=(supplier:Supplier)=>{
-      if(sortKey==="category")return categoryName(supplier.defaultCategoryId);
-      if(sortKey==="contact")return supplier.contactName||supplier.email||supplier.phone||"";
-      if(sortKey==="taxId")return supplier.taxId||"";
-      return supplier.name;
-    };
-    return [...filtered].sort((a,b)=>{
-      const result=valueFor(a).localeCompare(valueFor(b),"pt-PT",{sensitivity:"base",numeric:true});
-      return sortDirection==="asc"?result:-result;
-    });
-  },[suppliers,categories,query,sortKey,sortDirection]);
-
-  function toggleSort(key:SupplierSortKey){
-    if(sortKey===key)setSortDirection(current=>current==="asc"?"desc":"asc");
-    else{setSortKey(key);setSortDirection("asc")}
-  }
-  const indicator=(key:SupplierSortKey)=>sortKey===key?(sortDirection==="asc"?" ↑":" ↓"):"";
-
-  return <div className="cost-two-column supplier-layout">
-    <article className="panel supplier-form-sticky"><h2>{f.id?"Editar fornecedor":"Novo fornecedor"}</h2><div className="cost-form cost-form-grid">
-      <label>Nome<input value={f.name??""} onChange={field("name")}/></label>
-      <label>Categoria predefinida<select value={f.defaultCategoryId??""} onChange={e=>setF(v=>({...v,defaultCategoryId:e.target.value||null}))}><option value="">Sem categoria predefinida</option>{categories.map(category=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-      <label>NIF / VAT<input value={f.taxId??""} onChange={field("taxId")}/></label>
-      <label>Contacto<input value={f.contactName??""} onChange={field("contactName")}/></label>
-      <label>Email<input value={f.email??""} onChange={field("email")}/></label>
-      <label>Telefone<input value={f.phone??""} onChange={field("phone")}/></label>
-      <label>Website<input value={f.website??""} onChange={field("website")}/></label>
-      <label>Prazo pagamento (dias)<input type="number" value={f.paymentTermsDays??""} onChange={e=>setF(v=>({...v,paymentTermsDays:e.target.value?Number(e.target.value):null}))}/></label>
-      <label className="wide">Morada<input value={f.address??""} onChange={field("address")}/></label>
-      <label className="wide">Notas<textarea value={f.notes??""} onChange={field("notes")}/></label>
-      <button className="primary-button" disabled={!f.name?.trim()} onClick={()=>void act(async()=>{await costsStore.saveSupplier({...empty,...f,id:f.id||crypto.randomUUID(),propertyId,name:f.name!.trim(),defaultCategoryId:f.defaultCategoryId||null} as Supplier);edit();})}>Guardar</button>
-      {f.id&&<button className="secondary-button" onClick={()=>edit()}>Cancelar</button>}
-    </div></article>
-    <article className="panel cost-table supplier-list-panel">
-      <div className="supplier-list-toolbar">
-        <label>Pesquisar fornecedores<input type="search" value={query} placeholder="Nome, categoria, contacto, email, NIF..." onChange={event=>setQuery(event.target.value)}/></label>
-        <span>{visibleSuppliers.length} de {suppliers.length}</span>
-      </div>
-      <div className="supplier-table-scroll"><table><thead><tr>
-        <th><button type="button" className="supplier-sort" onClick={()=>toggleSort("name")}>Fornecedor{indicator("name")}</button></th>
-        <th><button type="button" className="supplier-sort" onClick={()=>toggleSort("category")}>Categoria predefinida{indicator("category")}</button></th>
-        <th><button type="button" className="supplier-sort" onClick={()=>toggleSort("contact")}>Contacto{indicator("contact")}</button></th>
-        <th><button type="button" className="supplier-sort" onClick={()=>toggleSort("taxId")}>NIF{indicator("taxId")}</button></th>
-        <th></th>
-      </tr></thead><tbody>{visibleSuppliers.length?visibleSuppliers.map(x=><tr key={x.id}><td><strong>{x.name}</strong><br/><small>{x.email}</small></td><td>{categoryName(x.defaultCategoryId)}</td><td>{x.contactName||x.phone||"—"}</td><td>{x.taxId||"—"}</td><td><button onClick={()=>edit(x)}>Editar</button><button onClick={()=>void act(()=>costsStore.deleteSupplier(propertyId,x.id))}>Remover</button></td></tr>):<tr><td colSpan={5}><p className="supplier-empty">Nenhum fornecedor corresponde à pesquisa.</p></td></tr>}</tbody></table></div>
-    </article>
-  </div>;
 }
 
 function ExpensesTab({propertyId,categories,suppliers,rows,categoryName,supplierName,act}:{propertyId:string;categories:CostCategory[];suppliers:Supplier[];rows:ExpenseRecord[];categoryName:(id:string)=>string;supplierName:(id:string|null)=>string;act:(w:()=>Promise<void>)=>Promise<void>}){
