@@ -10,7 +10,6 @@ import {
   calculatePeriodReferenceRates,
   configuredBasePriceRange,
   defaultDiscountName,
-  discountStackDescription,
   projectPeriodRoomRateRows,
   validatePricePeriod,
 } from "./pricing";
@@ -30,11 +29,16 @@ const DISCOUNT_KINDS: PriceDiscountKind[] = [
   "custom",
 ];
 
-const STACK_COLORS = ["blue", "yellow", "green", "grey", "pink"] as const;
-
 function euro(cents: number | null | undefined, currency: string) {
   if (cents === null || cents === undefined || cents <= 0) return "";
   return new Intl.NumberFormat("pt-PT", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100);
+}
+
+function signedEuro(cents: number | null, currency: string) {
+  if (cents === null) return "—";
+  if (cents === 0) return "0,00 €";
+  const amount = new Intl.NumberFormat("pt-PT", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(cents) / 100);
+  return `${cents > 0 ? "+" : "−"}${amount}`;
 }
 
 function toInputValue(cents: number) {
@@ -65,6 +69,16 @@ function coefficient(value: number | null) {
   return value === null || !Number.isFinite(value) ? "—" : value.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function effectiveDiscount(baseCents: number | null | undefined, finalCents: number | null | undefined) {
+  if (!baseCents || !finalCents || baseCents <= 0 || finalCents <= 0) return null;
+  return Math.max(0, (1 - finalCents / baseCents) * 100);
+}
+
+function percentageLabel(value: number | null) {
+  if (value === null) return "—";
+  return `${value.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
 function blankDiscount(): PriceDiscountEntry {
   return { id: crypto.randomUUID(), kind: "custom", name: "", discountPct: 0, active: true };
 }
@@ -75,21 +89,7 @@ function isLastMinute(kind: PriceDiscountKind) {
 
 function normalizedDiscount(item: PriceDiscountEntry): PriceDiscountEntry {
   const name = item.name.trim() || defaultDiscountName(item.kind);
-  return { ...item, name };
-}
-
-function stackSlots(kind: PriceDiscountKind): number[] {
-  switch (kind) {
-    case "loyalty": return [0, 1, 2];
-    case "mobile": return [1, 2];
-    case "basic_deal": return [1];
-    case "booking_campaign": return [0];
-    case "expedia_campaign": return [3];
-    case "limited_time_deal": return [4];
-    case "ota_last_minute": return [2];
-    case "custom": return [3];
-    default: return [];
-  }
+  return { ...item, name, active: true };
 }
 
 function selectedDiscountLabel(item: PriceDiscountEntry) {
@@ -180,9 +180,9 @@ export function PriceManagementPage({ property }: { property: Property }) {
   const lastMinuteDiscounts = periodDiscounts.filter((item) => isLastMinute(item.kind));
   const directCoefficient = previewRates && referencePrice > 0 ? previewRates.directFlexCents / referencePrice : null;
   const otaCoefficient = previewRates && referencePrice > 0 ? previewRates.otaFlexCents / referencePrice : null;
-  const stackCounts = STACK_COLORS.map((_, index) => periodDiscounts.filter((item) => item.active && stackSlots(item.kind).includes(index)).length);
-  const dateRowSpan = regularDiscounts.length + lastMinuteDiscounts.length + 3;
+  const dateRowSpan = regularDiscounts.length + lastMinuteDiscounts.length + 2;
   const roomPreviewRows = previewRates ? projectPeriodRoomRateRows(roomTypes, draftConfig, previewPeriod) : [];
+  const directLastMinuteCents = previewResults.find((item) => item.kind === "direct_last_minute" && item.directCents)?.directCents ?? null;
 
   function updatePrice(roomTypeId: string, value: string) {
     setInputs((current) => ({ ...current, [roomTypeId]: value }));
@@ -214,7 +214,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
     setPeriodPrice(toInputValue(period.directFlexReferenceCents));
     setPeriodOtaUplift(percentageInput(period.otaUpliftPct));
     setPeriodNrDiscount(percentageInput(period.nonRefundableDiscountPct));
-    setPeriodDiscounts(period.discounts.map((item) => ({ ...item })));
+    setPeriodDiscounts(period.discounts.map((item) => ({ ...item, active: true })));
     setPeriodError(null);
   }
 
@@ -224,7 +224,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
   }
 
   function updateDiscount(id: string, patch: Partial<PriceDiscountEntry>) {
-    setPeriodDiscounts((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
+    setPeriodDiscounts((current) => current.map((item) => item.id === id ? { ...item, ...patch, active: true } : item));
     setPeriodError(null);
   }
 
@@ -258,7 +258,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
       periods: [...current.periods.filter((item) => item.id !== period.id), period].sort((a, b) => a.startDate.localeCompare(b.startDate)),
     }));
     setEditingPeriodId(period.id);
-    setPeriodDiscounts(period.discounts.map((item) => ({ ...item })));
+    setPeriodDiscounts(period.discounts.map((item) => ({ ...item, active: true })));
     setDirty(true);
     setMessage(null);
     setPeriodError(null);
@@ -291,13 +291,37 @@ export function PriceManagementPage({ property }: { property: Property }) {
     }
   }
 
-  function renderStackCells(item: PriceDiscountEntry) {
-    const slots = stackSlots(item.kind);
-    return STACK_COLORS.map((color, index) => <td
-      key={`${item.id}-${color}`}
-      className={`sheet-stack-cell ${slots.includes(index) ? `sheet-stack-${color}` : ""}`}
-      title={discountStackDescription(item.kind)}
-    >{item.active && slots.includes(index) ? "✓" : ""}</td>);
+  function controlValues(item: PriceDiscountEntry) {
+    const result = resultById.get(item.id);
+    if (!result || !previewRates) return { effective: null, bookingDelta: null, expediaDelta: null };
+
+    if (item.kind === "direct_last_minute") {
+      return {
+        effective: effectiveDiscount(previewRates.directNonRefundableCents, result.directCents),
+        bookingDelta: null,
+        expediaDelta: null,
+      };
+    }
+
+    const finalOta = result.bookingFlexCents ?? result.expediaFlexCents;
+    const comparableDirect = item.kind === "ota_last_minute" && directLastMinuteCents
+      ? directLastMinuteCents
+      : previewRates.directFlexCents;
+
+    return {
+      effective: effectiveDiscount(previewRates.otaFlexCents, finalOta),
+      bookingDelta: result.bookingFlexCents ? result.bookingFlexCents - comparableDirect : null,
+      expediaDelta: result.expediaFlexCents ? result.expediaFlexCents - comparableDirect : null,
+    };
+  }
+
+  function renderControlCells(item: PriceDiscountEntry) {
+    const values = controlValues(item);
+    return <>
+      <td className="sheet-control-effective">{percentageLabel(values.effective)}</td>
+      <td className={values.bookingDelta === null ? "sheet-control-neutral" : values.bookingDelta >= 0 ? "sheet-control-positive" : "sheet-control-negative"}>{signedEuro(values.bookingDelta, property.currency)}</td>
+      <td className={values.expediaDelta === null ? "sheet-control-neutral" : values.expediaDelta >= 0 ? "sheet-control-positive" : "sheet-control-negative"}>{signedEuro(values.expediaDelta, property.currency)}</td>
+    </>;
   }
 
   function renderRateCells(item: PriceDiscountEntry) {
@@ -319,7 +343,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
   }
 
   function renderDiscountRow(item: PriceDiscountEntry) {
-    return <tr key={item.id} className={!item.active ? "sheet-inactive-row" : ""}>
+    return <tr key={item.id}>
       <td colSpan={2} className="sheet-discount-name">
         {item.kind === "custom" ? <div className="sheet-custom-discount">
           <select value={item.kind} onChange={(event) => changeDiscountKind(item, event.target.value as PriceDiscountKind)}>{DISCOUNT_KINDS.map((kind) => <option key={kind} value={kind}>{DISCOUNT_KIND_LABELS[kind]}</option>)}</select>
@@ -330,13 +354,14 @@ export function PriceManagementPage({ property }: { property: Property }) {
         <button type="button" className="sheet-remove-row" title="Remover desconto" onClick={() => removeDiscount(item.id)}>×</button>
       </td>
       <td className="sheet-percent-cell"><input inputMode="decimal" value={percentageInput(item.discountPct)} onChange={(event) => updateDiscount(item.id, { discountPct: parsePercentage(event.target.value) })} /><span>%</span></td>
-      <td className="sheet-active-cell"><input type="checkbox" checked={item.active} onChange={(event) => updateDiscount(item.id, { active: event.target.checked })} /></td>
-      {renderStackCells(item)}
+      {renderControlCells(item)}
       {renderRateCells(item)}
     </tr>;
   }
 
   if (loading) return <div className="pricing-loading">A carregar configuração de preços…</div>;
+
+  const baseBookingDelta = previewRates ? previewRates.otaFlexCents - previewRates.directFlexCents : null;
 
   return <>
     <div className="page-heading pricing-heading">
@@ -385,21 +410,20 @@ export function PriceManagementPage({ property }: { property: Property }) {
       <div className="pricing-sheet-title"><strong>{referenceRoom?.canonicalName ?? "Quarto de referência"}</strong><b>{euro(referencePrice, property.currency) || "—"}</b></div>
 
       <div className="pricing-sheet-wrap">
-        <table className="pricing-sheet-grid">
+        <table className="pricing-sheet-grid pricing-sheet-grid-controls">
           <thead>
             <tr>
               <th rowSpan={2} className="sheet-dates-head">DATAS</th>
               <th colSpan={2}>Coeficiente</th>
               <th rowSpan={2}>Desconto</th>
-              <th rowSpan={2} className="sheet-active-head">Promoção<br/>Ativa</th>
-              <th colSpan={5}>Acumulo<br/>Desconto OTAS</th>
+              <th colSpan={3} className="sheet-control-head">Controlo</th>
               <th colSpan={2} className="sheet-direct-head">Directas</th>
               <th colSpan={2} className="sheet-booking-head">Booking</th>
               <th colSpan={2} className="sheet-expedia-head">Expedia</th>
             </tr>
             <tr>
               <th>Directa</th><th>OTA</th>
-              {STACK_COLORS.map((color) => <th key={color} className={`sheet-stack-head sheet-stack-${color}`}></th>)}
+              <th className="sheet-control-subhead">Desc. efetivo</th><th className="sheet-control-subhead">Δ Booking</th><th className="sheet-control-subhead">Δ Expedia</th>
               <th>Flex</th><th>NR</th><th>Flex</th><th>NR</th><th>Flex</th><th>NR</th>
             </tr>
           </thead>
@@ -412,8 +436,10 @@ export function PriceManagementPage({ property }: { property: Property }) {
               </td>
               <td>{coefficient(directCoefficient)}</td>
               <td>{coefficient(otaCoefficient)}</td>
-              <td></td><td></td>
-              {STACK_COLORS.map((color) => <td key={`base-${color}`}></td>)}
+              <td></td>
+              <td className="sheet-control-effective">0,00%</td>
+              <td className={baseBookingDelta === null ? "sheet-control-neutral" : baseBookingDelta >= 0 ? "sheet-control-positive" : "sheet-control-negative"}>{signedEuro(baseBookingDelta, property.currency)}</td>
+              <td className={baseBookingDelta === null ? "sheet-control-neutral" : baseBookingDelta >= 0 ? "sheet-control-positive" : "sheet-control-negative"}>{signedEuro(baseBookingDelta, property.currency)}</td>
               <td className="sheet-money-input"><span>€</span><input inputMode="decimal" value={periodPrice} placeholder="0,00" onChange={(event) => { setPeriodPrice(event.target.value); setPeriodError(null); }} /></td>
               <td className="sheet-rate">{euro(previewRates?.directNonRefundableCents, property.currency)}</td>
               <td className="sheet-rate">{euro(previewRates?.otaFlexCents, property.currency)}</td>
@@ -424,15 +450,9 @@ export function PriceManagementPage({ property }: { property: Property }) {
 
             {regularDiscounts.map(renderDiscountRow)}
 
-            <tr className="sheet-last-minute-divider"><td colSpan={15}>Last Minute</td></tr>
+            <tr className="sheet-last-minute-divider"><td colSpan={12}>Last Minute</td></tr>
 
             {lastMinuteDiscounts.map(renderDiscountRow)}
-
-            <tr className="sheet-accumulation-row">
-              <td colSpan={2}>Acumulo de Descontos</td><td></td><td></td>
-              {stackCounts.map((count, index) => <td key={`count-${STACK_COLORS[index]}`} className={`sheet-stack-${STACK_COLORS[index]}`}>{count || ""}</td>)}
-              <td colSpan={6}></td>
-            </tr>
           </tbody>
         </table>
       </div>
