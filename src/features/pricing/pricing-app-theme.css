@@ -1,0 +1,427 @@
+/* Visual integration layer for the Sheet1-style Price Manager.
+   The spreadsheet structure is intentional; this file makes it feel native to the app. */
+
+.pricing-sheet-panel {
+  border-color: #dfe6e4;
+  box-shadow: 0 5px 18px rgba(26, 39, 52, .045);
+}
+
+.pricing-sheet-controls {
+  padding: 12px 16px;
+  border-bottom-color: #dde5e3;
+  background: #f6f9f8;
+}
+
+.pricing-sheet-controls > label {
+  color: #6f7d7a;
+  font-family: inherit;
+}
+
+.pricing-sheet-controls select,
+.sheet-inline-percent > div {
+  border-color: #d4ddda;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(24, 39, 44, .025);
+}
+
+.pricing-sheet-controls select:focus,
+.sheet-inline-percent > div:focus-within {
+  border-color: #6aa79e;
+  box-shadow: 0 0 0 2px rgba(31, 111, 104, .10);
+  outline: none;
+}
+
+.pricing-danger-button {
+  border-color: #e3c5c1;
+  border-radius: 8px;
+  background: #fff8f7;
+}
+
+.pricing-sheet-title {
+  gap: 5px;
+  padding: 17px 14px 15px;
+  border-bottom: 1px solid #dfe6e4;
+  background: linear-gradient(180deg, #fbfdfc 0%, #f5f9f8 100%);
+  color: #1c2933;
+  font-family: inherit;
+}
+
+.pricing-sheet-title strong {
+  color: #26343e;
+  font-size: 16px;
+  letter-spacing: -.015em;
+}
+
+.pricing-sheet-title b {
+  color: #1f6f68;
+  font-size: 22px;
+  letter-spacing: -.03em;
+}
+
+.pricing-sheet-wrap {
+  padding: 14px 14px 16px;
+  background: #f8faf9;
+  color-scheme: light;
+  scrollbar-color: #bcc8c5 transparent;
+  scrollbar-width: thin;
+}
+
+.pricing-sheet-grid {
+  overflow: hidden;
+  border: 1px solid #d8e1df;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  background: #fff;
+  color: #34404a;
+  font-family: inherit;
+  font-size: 11px;
+  box-shadow: 0 2px 8px rgba(26, 39, 52, .035);
+}
+
+.pricing-sheet-grid th,
+.pricing-sheet-grid td {
+  height: 31px;
+  padding: 4px 5px;
+  border: 0;
+  border-right: 1px solid #dde5e3;
+  border-bottom: 1px solid #dde5e3;
+  color: #526069;
+}
+
+.pricing-sheet-grid tr > :last-child { border-right: 0; }
+.pricing-sheet-grid tbody tr:last-child > * { border-bottom: 0; }
+
+.pricing-sheet-grid thead th {
+  background: #edf3f1;
+  color: #63716f;
+  font-weight: 800;
+  font-size: 9px !important;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.pricing-sheet-grid .sheet-dates-head {
+  color: #33413f;
+  font-size: 10px !important;
+}
+
+.pricing-sheet-grid .sheet-direct-head {
+  background: #e7f1ee;
+  color: #1f6f68;
+  font-size: 10px !important;
+  font-weight: 900;
+}
+
+.pricing-sheet-grid .sheet-booking-head {
+  background: #4f72a8;
+  color: #fff;
+  font-size: 10px !important;
+  font-weight: 900;
+}
+
+.pricing-sheet-grid .sheet-expedia-head {
+  background: #d3aa47;
+  color: #25302f;
+  font-size: 10px !important;
+  font-weight: 900;
+}
+
+.pricing-sheet-grid .sheet-active-head {
+  line-height: 1.2;
+}
+
+.sheet-dates-cell {
+  background: #fbfcfc;
+  color: #26343e !important;
+  font-weight: 800;
+}
+
+.sheet-dates-cell input,
+.sheet-money-input input,
+.sheet-percent-cell input,
+.sheet-discount-name > select,
+.sheet-custom-discount input,
+.sheet-custom-discount select {
+  color: #34404a;
+  font-family: inherit;
+}
+
+.sheet-dates-cell input,
+.sheet-money-input input,
+.sheet-percent-cell input {
+  border-radius: 5px;
+}
+
+.sheet-dates-cell input:focus,
+.sheet-money-input input:focus,
+.sheet-percent-cell input:focus,
+.sheet-discount-name > select:focus,
+.sheet-custom-discount input:focus,
+.sheet-custom-discount select:focus {
+  background: #edf5f3;
+  box-shadow: inset 0 0 0 1px #6aa79e;
+}
+
+.sheet-base-row td {
+  background: #f8fbfa;
+  color: #34404a;
+  font-weight: 800;
+}
+
+.sheet-base-row .sheet-rate {
+  color: #24313b;
+}
+
+.sheet-discount-name {
+  background: #fff;
+}
+
+.sheet-discount-name > select,
+.sheet-custom-discount input,
+.sheet-custom-discount select {
+  font-size: 11px !important;
+}
+
+.sheet-custom-discount select {
+  border-right-color: #d8e1df;
+}
+
+.sheet-remove-row {
+  color: #b6564d;
+}
+
+.sheet-active-cell input {
+  width: 16px;
+  height: 16px;
+  accent-color: #1f6f68;
+}
+
+.sheet-rate {
+  color: #44515b;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.sheet-rate-merged {
+  color: #26343e;
+  font-weight: 850;
+}
+
+.sheet-stack-blue { background: #dce9f2 !important; color: #355b78 !important; }
+.sheet-stack-yellow { background: #f3e4ad !important; color: #735b20 !important; }
+.sheet-stack-green { background: #d9eadf !important; color: #38684d !important; }
+.sheet-stack-grey { background: #e8ecec !important; color: #64706f !important; }
+.sheet-stack-pink { background: #ead9de !important; color: #805364 !important; }
+
+.sheet-stack-cell {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.sheet-inactive-row td:not(.sheet-stack-cell) {
+  background: #fbfcfc;
+  color: #a0aaa8;
+}
+
+.sheet-inactive-row .sheet-discount-name select,
+.sheet-inactive-row .sheet-custom-discount input,
+.sheet-inactive-row .sheet-custom-discount select,
+.sheet-inactive-row .sheet-percent-cell input {
+  color: #9aa4a2;
+}
+
+.sheet-last-minute-divider td {
+  height: 29px;
+  border-color: #bc9142 !important;
+  background: #d2a55d !important;
+  color: #25302f !important;
+  font-family: inherit;
+  font-size: 10px !important;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.sheet-accumulation-row td {
+  background: #f4f7f6;
+  color: #40504d;
+  font-weight: 850;
+}
+
+.pricing-sheet-actions {
+  padding: 12px 16px;
+  border-top-color: #dde5e3;
+  background: #f6f9f8;
+}
+
+.pricing-sheet-actions span {
+  color: #7a8885;
+}
+
+.pricing-room-preview-panel {
+  border-color: #dfe6e4;
+}
+
+/* Dark theme: keep the spreadsheet hierarchy, but remove the white Excel island. */
+html[data-theme="dark"] .pricing-sheet-panel {
+  border-color: #2a3940 !important;
+  background: #162127 !important;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .14);
+}
+
+html[data-theme="dark"] .pricing-sheet-controls,
+html[data-theme="dark"] .pricing-sheet-actions {
+  background: #131e23 !important;
+  border-color: #2b3940 !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-controls > label {
+  color: #9eadaa !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-controls select,
+html[data-theme="dark"] .sheet-inline-percent > div {
+  background: #10191e !important;
+  color: #e4ecea !important;
+  border-color: #34434a !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-title {
+  border-color: #2a3940;
+  background: linear-gradient(180deg, #17242a 0%, #142026 100%);
+  color: #e5edeb;
+}
+
+html[data-theme="dark"] .pricing-sheet-title strong {
+  color: #dfe8e6;
+}
+
+html[data-theme="dark"] .pricing-sheet-title b {
+  color: #7fc3b8;
+}
+
+html[data-theme="dark"] .pricing-sheet-wrap {
+  background: #10191e !important;
+  color-scheme: dark;
+  scrollbar-color: #405159 transparent;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid {
+  border-color: #314149;
+  background: #162127;
+  color: #c8d3d1;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .16);
+}
+
+html[data-theme="dark"] .pricing-sheet-grid th,
+html[data-theme="dark"] .pricing-sheet-grid td {
+  border-right-color: #2b3a41 !important;
+  border-bottom-color: #2b3a41 !important;
+  background: #162127;
+  color: #c8d3d1 !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid thead th {
+  background: #1c292f !important;
+  color: #aebbb8 !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid .sheet-dates-head {
+  color: #dfe8e6 !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid .sheet-direct-head {
+  background: #18302c !important;
+  color: #8bd0c4 !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid .sheet-booking-head {
+  background: #36557e !important;
+  color: #eef4fb !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid .sheet-expedia-head {
+  background: #8b6b28 !important;
+  color: #fff1c7 !important;
+}
+
+html[data-theme="dark"] .sheet-dates-cell,
+html[data-theme="dark"] .sheet-base-row td,
+html[data-theme="dark"] .sheet-discount-name,
+html[data-theme="dark"] .sheet-accumulation-row td {
+  background: #162127 !important;
+}
+
+html[data-theme="dark"] .sheet-dates-cell,
+html[data-theme="dark"] .sheet-base-row .sheet-rate,
+html[data-theme="dark"] .sheet-rate,
+html[data-theme="dark"] .sheet-rate-merged {
+  color: #e4ecea !important;
+}
+
+html[data-theme="dark"] .sheet-dates-cell input,
+html[data-theme="dark"] .sheet-money-input input,
+html[data-theme="dark"] .sheet-percent-cell input,
+html[data-theme="dark"] .sheet-discount-name > select,
+html[data-theme="dark"] .sheet-custom-discount input,
+html[data-theme="dark"] .sheet-custom-discount select {
+  background: transparent !important;
+  color: #e4ecea !important;
+  border-color: #34434a !important;
+}
+
+html[data-theme="dark"] .sheet-dates-cell input:focus,
+html[data-theme="dark"] .sheet-money-input input:focus,
+html[data-theme="dark"] .sheet-percent-cell input:focus,
+html[data-theme="dark"] .sheet-discount-name > select:focus,
+html[data-theme="dark"] .sheet-custom-discount input:focus,
+html[data-theme="dark"] .sheet-custom-discount select:focus {
+  background: #152824 !important;
+  box-shadow: inset 0 0 0 1px #4f8f86;
+}
+
+html[data-theme="dark"] .sheet-custom-discount select {
+  border-right-color: #34434a !important;
+}
+
+html[data-theme="dark"] .sheet-stack-blue { background: #223b4b !important; color: #9bc5dd !important; }
+html[data-theme="dark"] .sheet-stack-yellow { background: #4a4024 !important; color: #e8ce74 !important; }
+html[data-theme="dark"] .sheet-stack-green { background: #233d31 !important; color: #9bcaae !important; }
+html[data-theme="dark"] .sheet-stack-grey { background: #2a3438 !important; color: #aeb9b7 !important; }
+html[data-theme="dark"] .sheet-stack-pink { background: #49313a !important; color: #d5a7b7 !important; }
+
+html[data-theme="dark"] .sheet-inactive-row td:not(.sheet-stack-cell) {
+  background: #141f24 !important;
+  color: #71807d !important;
+}
+
+html[data-theme="dark"] .sheet-inactive-row .sheet-discount-name select,
+html[data-theme="dark"] .sheet-inactive-row .sheet-custom-discount input,
+html[data-theme="dark"] .sheet-inactive-row .sheet-custom-discount select,
+html[data-theme="dark"] .sheet-inactive-row .sheet-percent-cell input {
+  color: #71807d !important;
+}
+
+html[data-theme="dark"] .sheet-last-minute-divider td {
+  background: #a77e3e !important;
+  border-color: #7f602f !important;
+  color: #11191c !important;
+}
+
+html[data-theme="dark"] .sheet-accumulation-row td {
+  background: #18252a !important;
+  color: #d6e0de !important;
+}
+
+html[data-theme="dark"] .pricing-danger-button {
+  background: #261918 !important;
+  border-color: #5c3431 !important;
+  color: #e49a93 !important;
+}
+
+@media (max-width: 1250px) {
+  .pricing-sheet-wrap { padding: 10px; }
+  .pricing-sheet-grid { border-radius: 8px; }
+}
