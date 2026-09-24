@@ -1,6 +1,6 @@
 /* Price Manager refinements layered on top of the Sheet1-inspired structure. */
 .pricing-sheet-grid-controls {
-  min-width: 1280px;
+  min-width: 1370px;
   table-layout: fixed;
 }
 
@@ -60,7 +60,7 @@
   width: 48px;
 }
 
-/* Channel blocks: Directas, Booking and Expedia are equal visual blocks. */
+/* Directas, Booking and Expedia are equal visual blocks. */
 .pricing-sheet-grid-controls .sheet-direct-head,
 .pricing-sheet-grid-controls .sheet-booking-head,
 .pricing-sheet-grid-controls .sheet-expedia-head {
@@ -82,50 +82,67 @@
   font-variant-numeric: tabular-nums;
 }
 
-.pricing-sheet-grid-controls .sheet-money-input input {
-  width: 82px;
+/* A td must remain a table-cell. The base stylesheet made this flex, which split Directas visually. */
+.pricing-sheet-grid-controls td.sheet-money-input {
+  display: table-cell !important;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0 8px !important;
 }
 
-/* Controlo stays compact and aligned as one smaller block. */
+.pricing-sheet-grid-controls td.sheet-money-input > span,
+.pricing-sheet-grid-controls td.sheet-money-input > input {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.pricing-sheet-grid-controls td.sheet-money-input > span {
+  margin-right: 5px;
+}
+
+.pricing-sheet-grid-controls .sheet-money-input input {
+  width: 76px;
+}
+
+/* Controlo remains compact, but values must stay readable. */
 .pricing-sheet-grid-controls .sheet-control-head {
-  width: 126px !important;
-  min-width: 126px !important;
+  width: 216px !important;
+  min-width: 216px !important;
   background: #edf5f3 !important;
   color: #1f6f68 !important;
   font-weight: 800 !important;
 }
 
 .pricing-sheet-grid-controls .sheet-control-subhead {
-  width: 42px !important;
-  min-width: 42px !important;
-  max-width: 42px !important;
-  padding-left: 3px !important;
-  padding-right: 3px !important;
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
   background: #f5f9f8 !important;
   color: #61716d !important;
-  font-size: 7px !important;
-  line-height: 1.05;
+  font-size: 7.5px !important;
+  line-height: 1.1;
   font-weight: 800 !important;
   letter-spacing: 0;
   white-space: normal;
-  overflow-wrap: anywhere;
 }
 
 .pricing-sheet-grid-controls .sheet-control-effective,
 .pricing-sheet-grid-controls .sheet-control-positive,
 .pricing-sheet-grid-controls .sheet-control-negative,
 .pricing-sheet-grid-controls .sheet-control-neutral {
-  width: 42px !important;
-  min-width: 42px !important;
-  max-width: 42px !important;
-  padding-left: 3px !important;
-  padding-right: 3px !important;
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
   font-variant-numeric: tabular-nums;
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 800;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .pricing-sheet-grid-controls .sheet-control-effective { color: #60736f; }
