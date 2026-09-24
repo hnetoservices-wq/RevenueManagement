@@ -1,10 +1,67 @@
 /* Price Manager refinements layered on top of the Sheet1-inspired structure. */
 .pricing-sheet-grid-controls {
-  min-width: 1180px;
+  min-width: 1420px;
+  table-layout: fixed;
+}
+
+/* Give the grid enough breathing room so rates and labels do not collide. */
+.pricing-sheet-grid-controls th,
+.pricing-sheet-grid-controls td {
+  height: 36px;
+  padding: 6px 8px;
+}
+
+.pricing-sheet-grid-controls .sheet-dates-head,
+.pricing-sheet-grid-controls .sheet-dates-cell {
+  width: 132px !important;
+  min-width: 132px !important;
+}
+
+.pricing-sheet-grid-controls .sheet-dates-cell {
+  padding: 10px 8px !important;
+}
+
+.pricing-sheet-grid-controls .sheet-dates-cell input {
+  width: 116px;
+  font-size: 10px !important;
+}
+
+.pricing-sheet-grid-controls thead tr:nth-child(2) > th:nth-child(1),
+.pricing-sheet-grid-controls thead tr:nth-child(2) > th:nth-child(2) {
+  width: 78px;
+  min-width: 78px;
 }
 
 .pricing-sheet-grid-controls .sheet-discount-name {
-  min-width: 220px;
+  min-width: 190px;
+  padding-left: 6px !important;
+  padding-right: 28px !important;
+}
+
+.pricing-sheet-grid-controls .sheet-discount-name > select,
+.pricing-sheet-grid-controls .sheet-custom-discount,
+.pricing-sheet-grid-controls .sheet-custom-discount input {
+  min-width: 0;
+}
+
+.pricing-sheet-grid-controls .sheet-percent-cell {
+  width: 78px;
+  min-width: 78px;
+}
+
+.pricing-sheet-grid-controls .sheet-percent-cell input {
+  width: 48px;
+}
+
+.pricing-sheet-grid-controls .sheet-rate,
+.pricing-sheet-grid-controls .sheet-money-input {
+  min-width: 96px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pricing-sheet-grid-controls .sheet-money-input input {
+  width: 72px;
 }
 
 .pricing-sheet-grid-controls .sheet-control-head {
@@ -14,7 +71,7 @@
 }
 
 .pricing-sheet-grid-controls .sheet-control-subhead {
-  min-width: 95px;
+  min-width: 104px;
   background: #f5f9f8 !important;
   color: #61716d !important;
   font-size: 9px !important;
@@ -27,6 +84,7 @@
 .pricing-sheet-grid-controls .sheet-control-positive,
 .pricing-sheet-grid-controls .sheet-control-negative,
 .pricing-sheet-grid-controls .sheet-control-neutral {
+  min-width: 104px;
   font-variant-numeric: tabular-nums;
   font-size: 10px;
   font-weight: 800;
@@ -122,6 +180,17 @@
   font-size: 11px;
 }
 
+/* Keep the reference marker inline so every room card has the same height. */
+.pricing-base-panel .pricing-reference-row td:nth-child(1) strong::before {
+  content: "(*) ";
+  color: #55b9a8;
+  font-weight: 900;
+}
+
+.pricing-base-panel .pricing-reference-badge {
+  display: none !important;
+}
+
 .pricing-base-panel .pricing-table td:nth-child(2) {
   grid-area: inventory;
   color: #8a939b;
@@ -135,12 +204,6 @@
   width: 100% !important;
   min-width: 0;
   margin-top: 2px;
-}
-
-.pricing-base-panel .pricing-reference-badge {
-  display: block;
-  width: max-content;
-  margin: 4px 0 0 !important;
 }
 
 /* Last-minute discounts no longer live in a separate visual block. */
