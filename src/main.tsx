@@ -11,6 +11,7 @@ import "./snapshot.css";
 import "./ui/accessibility.css";
 import "./ui/inventoryTheme.css";
 import "./features/pricing/pricing-app-theme.css";
+import "./features/pricing/pricing-simplify.css";
 
 initUiPreferences();
 initPortugueseNumberFormatting();
