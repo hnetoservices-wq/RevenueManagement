@@ -10,6 +10,7 @@ import "./styles.css";
 import "./snapshot.css";
 import "./ui/accessibility.css";
 import "./ui/inventoryTheme.css";
+import "./features/pricing/pricing-app-theme.css";
 
 initUiPreferences();
 initPortugueseNumberFormatting();
