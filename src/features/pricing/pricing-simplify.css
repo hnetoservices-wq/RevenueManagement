@@ -1,6 +1,6 @@
 /* Price Manager refinements layered on top of the Sheet1-inspired structure. */
 .pricing-sheet-grid-controls {
-  min-width: 1360px;
+  min-width: 1280px;
   table-layout: fixed;
 }
 
@@ -60,20 +60,36 @@
   width: 48px;
 }
 
+/* Channel blocks: Directas, Booking and Expedia are equal visual blocks. */
+.pricing-sheet-grid-controls .sheet-direct-head,
+.pricing-sheet-grid-controls .sheet-booking-head,
+.pricing-sheet-grid-controls .sheet-expedia-head {
+  width: 240px !important;
+  min-width: 240px !important;
+}
+
+/* The six Flex/NR columns split those three channel blocks evenly. */
+.pricing-sheet-grid-controls thead tr:nth-child(2) > th:nth-child(n+3):nth-child(-n+8) {
+  width: 120px !important;
+  min-width: 120px !important;
+}
+
 .pricing-sheet-grid-controls .sheet-rate,
 .pricing-sheet-grid-controls .sheet-money-input {
-  min-width: 96px;
+  width: 120px !important;
+  min-width: 120px !important;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .pricing-sheet-grid-controls .sheet-money-input input {
-  width: 72px;
+  width: 82px;
 }
 
-/* Controlo is deliberately compact; it is supporting information, not the focus. */
+/* Controlo stays compact and aligned as one smaller block. */
 .pricing-sheet-grid-controls .sheet-control-head {
   width: 126px !important;
+  min-width: 126px !important;
   background: #edf5f3 !important;
   color: #1f6f68 !important;
   font-weight: 800 !important;
