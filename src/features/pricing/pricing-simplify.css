@@ -1,5 +1,4 @@
-/* The Sheet1-inspired layout keeps the familiar pricing grid, but uses the former
-   discount-stacking area for decision-support metrics. */
+/* Price Manager refinements layered on top of the Sheet1-inspired structure. */
 .pricing-sheet-grid-controls {
   min-width: 1180px;
 }
@@ -34,48 +33,150 @@
   white-space: nowrap;
 }
 
-.pricing-sheet-grid-controls .sheet-control-effective {
-  color: #60736f;
-}
-
+.pricing-sheet-grid-controls .sheet-control-effective { color: #60736f; }
 .pricing-sheet-grid-controls .sheet-control-positive {
   color: #287a60;
   background: rgba(40,122,96,.06);
 }
-
 .pricing-sheet-grid-controls .sheet-control-negative {
   color: #b65047;
   background: rgba(182,80,71,.07);
 }
+.pricing-sheet-grid-controls .sheet-control-neutral { color: #8c949c; }
 
-.pricing-sheet-grid-controls .sheet-control-neutral {
-  color: #8c949c;
+/* Base prices: use a compact six-room row. Additional rooms wrap onto another row. */
+.pricing-layout {
+  grid-template-columns: 1fr !important;
+}
+
+.pricing-reference-panel {
+  position: static !important;
+  display: grid;
+  grid-template-columns: minmax(240px, .45fr) minmax(280px, .55fr);
+  align-items: end;
+  gap: 24px;
+  padding: 14px 18px !important;
+}
+
+.pricing-reference-panel .panel-heading { margin-bottom: 0; }
+.pricing-reference-panel .pricing-reference-select { max-width: 420px; }
+
+.pricing-base-panel > .panel-heading {
+  padding: 18px 20px 12px !important;
+}
+
+.pricing-base-panel .pricing-table-wrap {
+  overflow: auto;
+  padding: 0 20px 16px;
+}
+
+.pricing-base-panel .pricing-table {
+  display: block;
+  min-width: 780px;
+}
+
+.pricing-base-panel .pricing-table thead { display: none; }
+
+.pricing-base-panel .pricing-table tbody {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  border-top: 1px solid #e2e5e9;
+  border-left: 1px solid #e2e5e9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.pricing-base-panel .pricing-table tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "room inventory"
+    "price price";
+  align-content: start;
+  gap: 9px 8px;
+  min-width: 0;
+  min-height: 94px;
+  padding: 11px 12px;
+  border-right: 1px solid #e2e5e9;
+  border-bottom: 1px solid #e2e5e9;
+  background: #fff;
+}
+
+.pricing-base-panel .pricing-table td {
+  min-width: 0 !important;
+  width: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.pricing-base-panel .pricing-table td:nth-child(1) {
+  grid-area: room;
+  overflow: hidden;
+}
+
+.pricing-base-panel .pricing-table td:nth-child(1) strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.pricing-base-panel .pricing-table td:nth-child(2) {
+  grid-area: inventory;
+  color: #8a939b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pricing-base-panel .pricing-table td:nth-child(3) { grid-area: price; }
+
+.pricing-base-panel .pricing-price-input {
+  width: 100% !important;
+  min-width: 0;
+  margin-top: 2px;
+}
+
+.pricing-base-panel .pricing-reference-badge {
+  display: block;
+  width: max-content;
+  margin: 4px 0 0 !important;
+}
+
+/* Last-minute discounts no longer live in a separate visual block. */
+.pricing-sheet-grid .sheet-last-minute-divider {
+  display: none !important;
 }
 
 html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-head {
   background: #17302c !important;
   color: #86c9bd !important;
 }
-
 html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-subhead {
   background: #17242a !important;
   color: #9eadaa !important;
 }
-
-html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-effective {
-  color: #a6b5b2;
-}
-
+html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-effective { color: #a6b5b2; }
 html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-positive {
   color: #7fc3a7;
   background: rgba(62,139,106,.12);
 }
-
 html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-negative {
   color: #e39a93;
   background: rgba(182,80,71,.12);
 }
+html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-neutral { color: #7f8c8a; }
 
-html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-neutral {
-  color: #7f8c8a;
+html[data-theme="dark"] .pricing-base-panel .pricing-table tbody {
+  border-color: #2a3940;
+}
+html[data-theme="dark"] .pricing-base-panel .pricing-table tr {
+  background: #162127;
+  border-color: #2a3940;
+}
+html[data-theme="dark"] .pricing-base-panel .pricing-table td:nth-child(2) { color: #93a19f; }
+
+@media(max-width:1250px) {
+  .pricing-reference-panel { grid-template-columns: 1fr; }
+  .pricing-base-panel .pricing-table tbody { grid-template-columns: repeat(6, minmax(120px, 1fr)); }
 }
