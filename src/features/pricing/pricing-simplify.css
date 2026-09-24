@@ -1,13 +1,81 @@
-/* Price Manager simplification: these controls are intentionally hidden from the Sheet1-style UI.
-   Discount stacking remains calculated internally and represented by the coloured OTA accumulation cells. */
-.pricing-sheet-grid .sheet-active-head,
-.pricing-sheet-grid .sheet-active-cell,
-.pricing-sheet-grid .sheet-accumulation-row,
-.pricing-sheet-grid .sheet-base-row > td:nth-child(5) {
-  display: none !important;
+/* The Sheet1-inspired layout keeps the familiar pricing grid, but uses the former
+   discount-stacking area for decision-support metrics. */
+.pricing-sheet-grid-controls {
+  min-width: 1180px;
 }
 
-/* With the active-promotion column removed, give the discount selector a little more room. */
-.pricing-sheet-grid .sheet-discount-name {
+.pricing-sheet-grid-controls .sheet-discount-name {
   min-width: 220px;
+}
+
+.pricing-sheet-grid-controls .sheet-control-head {
+  background: #edf5f3 !important;
+  color: #1f6f68 !important;
+  font-weight: 800 !important;
+}
+
+.pricing-sheet-grid-controls .sheet-control-subhead {
+  min-width: 95px;
+  background: #f5f9f8 !important;
+  color: #61716d !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  letter-spacing: .025em;
+  white-space: nowrap;
+}
+
+.pricing-sheet-grid-controls .sheet-control-effective,
+.pricing-sheet-grid-controls .sheet-control-positive,
+.pricing-sheet-grid-controls .sheet-control-negative,
+.pricing-sheet-grid-controls .sheet-control-neutral {
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pricing-sheet-grid-controls .sheet-control-effective {
+  color: #60736f;
+}
+
+.pricing-sheet-grid-controls .sheet-control-positive {
+  color: #287a60;
+  background: rgba(40,122,96,.06);
+}
+
+.pricing-sheet-grid-controls .sheet-control-negative {
+  color: #b65047;
+  background: rgba(182,80,71,.07);
+}
+
+.pricing-sheet-grid-controls .sheet-control-neutral {
+  color: #8c949c;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-head {
+  background: #17302c !important;
+  color: #86c9bd !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-subhead {
+  background: #17242a !important;
+  color: #9eadaa !important;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-effective {
+  color: #a6b5b2;
+}
+
+html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-positive {
+  color: #7fc3a7;
+  background: rgba(62,139,106,.12);
+}
+
+html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-negative {
+  color: #e39a93;
+  background: rgba(182,80,71,.12);
+}
+
+html[data-theme="dark"] .pricing-sheet-grid-controls .sheet-control-neutral {
+  color: #7f8c8a;
 }
