@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { initPricingGridUi } from "./features/pricing/pricingGridUi";
 import { initPortuguesePhrases } from "./ui/ptPTPhrases";
 import { initPortugueseUi } from "./ui/ptPT";
 import { initPortugueseInventoryUi } from "./ui/ptPTInventory";
@@ -18,6 +19,7 @@ initPortugueseNumberFormatting();
 initPortuguesePhrases();
 initPortugueseUi();
 initPortugueseInventoryUi();
+initPricingGridUi();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
