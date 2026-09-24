@@ -1,0 +1,13 @@
+/* Price Manager simplification: these controls are intentionally hidden from the Sheet1-style UI.
+   Discount stacking remains calculated internally and represented by the coloured OTA accumulation cells. */
+.pricing-sheet-grid .sheet-active-head,
+.pricing-sheet-grid .sheet-active-cell,
+.pricing-sheet-grid .sheet-accumulation-row,
+.pricing-sheet-grid .sheet-base-row > td:nth-child(5) {
+  display: none !important;
+}
+
+/* With the active-promotion column removed, give the discount selector a little more room. */
+.pricing-sheet-grid .sheet-discount-name {
+  min-width: 220px;
+}
