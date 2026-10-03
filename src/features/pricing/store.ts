@@ -50,6 +50,7 @@ function normalizePeriod(rawPeriod: Partial<PricePeriod>, index: number, legacy?
     id: periodId,
     startDate: String(rawPeriod.startDate ?? "") as PricePeriod["startDate"],
     endDate: String(rawPeriod.endDate ?? "") as PricePeriod["endDate"],
+    note: String(rawPeriod.note ?? "").slice(0, 30),
     directFlexReferenceCents: finiteOr(rawPeriod.directFlexReferenceCents, 0),
     otaUpliftPct: finiteOr(rawPeriod.otaUpliftPct, finiteOr(legacy?.upliftPct, DEFAULT_OTA_UPLIFT_PCT)),
     nonRefundableDiscountPct: finiteOr(rawPeriod.nonRefundableDiscountPct, finiteOr(legacy?.nonRefundableDiscountPct, DEFAULT_NON_REFUNDABLE_DISCOUNT_PCT)),
