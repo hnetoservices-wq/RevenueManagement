@@ -1,5 +1,6 @@
 let pricingGridObserver: MutationObserver | null = null;
 let scheduled = false;
+let persistenceBridgeInstalled = false;
 
 function isControlCell(cell: Element) {
   return cell.classList.contains("sheet-control-effective")
@@ -44,6 +45,40 @@ function applyPricingGridLayout() {
   document.querySelectorAll<HTMLTableElement>(".pricing-sheet-grid-controls").forEach(reorderPricingGrid);
 }
 
+function persistPricingAfterPeriodAction(attempt = 0) {
+  window.setTimeout(() => {
+    const pricingPanel = document.querySelector(".pricing-sheet-panel");
+    if (!pricingPanel || pricingPanel.querySelector(".pricing-period-error")) return;
+
+    const saveButton = document.querySelector<HTMLButtonElement>(".pricing-heading .primary-button");
+    if (!saveButton) return;
+
+    if (!saveButton.disabled) {
+      saveButton.click();
+      return;
+    }
+
+    // React batches the period update. Give it a few frames to enable Guardar tudo,
+    // then persist the new/edited/removed period automatically.
+    if (attempt < 10) persistPricingAfterPeriodAction(attempt + 1);
+  }, attempt === 0 ? 0 : 25);
+}
+
+function installPricingPersistenceBridge() {
+  if (persistenceBridgeInstalled) return;
+  persistenceBridgeInstalled = true;
+
+  document.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    const periodAction = target.closest(".pricing-sheet-actions .primary-button, .pricing-danger-button");
+    if (!periodAction) return;
+
+    persistPricingAfterPeriodAction();
+  });
+}
+
 function observe() {
   if (!document.body || pricingGridObserver) return;
 
@@ -65,6 +100,7 @@ function observe() {
 }
 
 export function initPricingGridUi() {
+  installPricingPersistenceBridge();
   if (document.body) observe();
   else window.addEventListener("DOMContentLoaded", observe, { once: true });
 }
