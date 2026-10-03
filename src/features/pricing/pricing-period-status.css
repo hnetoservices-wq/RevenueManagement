@@ -1,0 +1,17 @@
+.pricing-period-summary-main strong.pricing-period-date-current {
+  color: #4ade80;
+  font-weight: 900;
+}
+
+.pricing-period-summary-main strong.pricing-period-date-future {
+  color: #f59e0b;
+  font-weight: 850;
+}
+
+html[data-theme="light"] .pricing-period-summary-main strong.pricing-period-date-current {
+  color: #16a34a;
+}
+
+html[data-theme="light"] .pricing-period-summary-main strong.pricing-period-date-future {
+  color: #d97706;
+}
