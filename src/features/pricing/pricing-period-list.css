@@ -101,77 +101,67 @@
 }
 
 .pricing-period-body {
-  padding: 14px;
+  padding: 12px 14px 14px;
   border-top: 1px solid #e5ebe9;
   background: #f8faf9;
 }
 
-.pricing-period-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
-  gap: 8px;
-}
-
-.pricing-period-metric {
-  padding: 10px 12px;
-  border: 1px solid #e0e7e5;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.pricing-period-metric span {
-  display: block;
-  color: #82908c;
-  font-size: 8px;
-  font-weight: 850;
-  letter-spacing: .045em;
-  text-transform: uppercase;
-}
-
-.pricing-period-metric strong {
-  display: block;
-  margin-top: 4px;
-  color: #334149;
-  font-size: 12px;
-}
-
-.pricing-period-discounts {
-  margin-top: 12px;
-}
-
-.pricing-period-discounts > strong {
-  color: #596763;
+.pricing-period-base-line {
+  padding: 1px 2px 10px;
+  color: #53635f;
   font-size: 10px;
+  font-weight: 750;
 }
 
-.pricing-period-discount-list {
-  display: grid;
-  gap: 5px;
-  margin-top: 7px;
+.pricing-period-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 9px;
+  scrollbar-width: thin;
+  scrollbar-color: #bdc9c6 transparent;
 }
 
-.pricing-period-discount-row {
+.pricing-period-edit-table {
+  width: 100%;
+  min-width: 1360px !important;
+  margin: 0;
+}
+
+.pricing-period-edit-table .sheet-dates-cell input,
+.pricing-period-edit-table .sheet-money-input input,
+.pricing-period-edit-table .sheet-percent-cell input,
+.pricing-period-edit-table .sheet-discount-name select,
+.pricing-period-edit-table .sheet-custom-discount input {
+  cursor: text;
+}
+
+.pricing-period-edit-table .sheet-discount-name select {
+  cursor: pointer;
+}
+
+.pricing-period-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 7px 10px;
-  border-radius: 7px;
-  background: #eef3f1;
-  color: #4c5a57;
-  font-size: 10px;
+  gap: 12px;
+  padding-top: 10px;
 }
 
-.pricing-period-discount-row b {
-  color: #26353b;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.pricing-period-actions .secondary-button {
+  flex: 0 0 auto;
 }
 
-.pricing-period-no-discounts {
-  margin: 7px 0 0;
-  color: #8a9693;
-  font-size: 10px;
+.pricing-period-save-status {
+  color: #75827f;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.pricing-period-save-status[data-tone="saved"] {
+  color: #397967;
+}
+
+.pricing-period-save-status[data-tone="error"] {
+  color: #b5544b;
 }
 
 html[data-theme="dark"] .pricing-period-list-panel > .panel-heading {
@@ -211,28 +201,24 @@ html[data-theme="dark"] .pricing-period-body {
   background: #111b20;
 }
 
-html[data-theme="dark"] .pricing-period-metric {
-  border-color: #2e3d44;
-  background: #162127;
-}
-
-html[data-theme="dark"] .pricing-period-metric span,
-html[data-theme="dark"] .pricing-period-discounts > strong,
-html[data-theme="dark"] .pricing-period-no-discounts {
-  color: #91a09d;
-}
-
-html[data-theme="dark"] .pricing-period-metric strong {
-  color: #dfe9e6;
-}
-
-html[data-theme="dark"] .pricing-period-discount-row {
-  background: #1a292e;
+html[data-theme="dark"] .pricing-period-base-line {
   color: #b7c4c1;
 }
 
-html[data-theme="dark"] .pricing-period-discount-row b {
-  color: #e4ecea;
+html[data-theme="dark"] .pricing-period-table-wrap {
+  scrollbar-color: #405159 transparent;
+}
+
+html[data-theme="dark"] .pricing-period-save-status {
+  color: #91a09d;
+}
+
+html[data-theme="dark"] .pricing-period-save-status[data-tone="saved"] {
+  color: #7fc3a7;
+}
+
+html[data-theme="dark"] .pricing-period-save-status[data-tone="error"] {
+  color: #e39a93;
 }
 
 @media (max-width: 900px) {
@@ -244,7 +230,7 @@ html[data-theme="dark"] .pricing-period-discount-row b {
     grid-row: 2;
   }
 
-  .pricing-period-metrics {
-    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  .pricing-period-body {
+    padding: 10px;
   }
 }
