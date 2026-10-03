@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { initPricingGridUi } from "./features/pricing/pricingGridUi";
 import { initPricingPeriodResetUi } from "./features/pricing/pricingPeriodResetUi";
+import { initPricingPeriodStatus } from "./features/pricing/pricingPeriodStatus";
 import { initPricingReferenceLine } from "./features/pricing/pricingReferenceLine";
 import { initPortuguesePhrases } from "./ui/ptPTPhrases";
 import { initPortugueseUi } from "./ui/ptPT";
@@ -24,6 +25,7 @@ initPortugueseInventoryUi();
 initPricingGridUi();
 initPricingReferenceLine();
 initPricingPeriodResetUi();
+initPricingPeriodStatus();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
