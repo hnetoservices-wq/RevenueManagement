@@ -1,0 +1,250 @@
+/* Saved pricing periods replace the old per-room preview panel. */
+.pricing-room-preview-panel {
+  display: none !important;
+}
+
+.pricing-period-list-panel {
+  margin-top: 16px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.pricing-period-list-panel > .panel-heading {
+  padding: 18px 20px 14px;
+  margin: 0;
+  border-bottom: 1px solid #e3e9e7;
+}
+
+.pricing-period-count {
+  color: #7b8784;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pricing-period-list {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.pricing-period-empty {
+  margin: 0;
+  padding: 18px 12px;
+  color: #7c8885;
+  font-size: 11px;
+  text-align: center;
+}
+
+.pricing-period-item {
+  overflow: hidden;
+  border: 1px solid #dce5e2;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.pricing-period-item[open] {
+  border-color: #b9d0ca;
+  box-shadow: 0 2px 8px rgba(26, 39, 52, .04);
+}
+
+.pricing-period-item summary {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 54px;
+  padding: 10px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.pricing-period-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.pricing-period-item summary::after {
+  content: "⌄";
+  color: #7f8c89;
+  font-size: 16px;
+  font-weight: 800;
+  transform: translateY(-1px);
+}
+
+.pricing-period-item[open] summary::after {
+  content: "⌃";
+}
+
+.pricing-period-summary-main {
+  min-width: 0;
+}
+
+.pricing-period-summary-main strong {
+  display: block;
+  color: #29373f;
+  font-size: 12px;
+}
+
+.pricing-period-summary-main small {
+  display: block;
+  margin-top: 4px;
+  color: #76827f;
+  font-size: 10px;
+}
+
+.pricing-period-summary-price {
+  color: #1f6f68;
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.pricing-period-body {
+  padding: 14px;
+  border-top: 1px solid #e5ebe9;
+  background: #f8faf9;
+}
+
+.pricing-period-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.pricing-period-metric {
+  padding: 10px 12px;
+  border: 1px solid #e0e7e5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.pricing-period-metric span {
+  display: block;
+  color: #82908c;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.pricing-period-metric strong {
+  display: block;
+  margin-top: 4px;
+  color: #334149;
+  font-size: 12px;
+}
+
+.pricing-period-discounts {
+  margin-top: 12px;
+}
+
+.pricing-period-discounts > strong {
+  color: #596763;
+  font-size: 10px;
+}
+
+.pricing-period-discount-list {
+  display: grid;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.pricing-period-discount-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: #eef3f1;
+  color: #4c5a57;
+  font-size: 10px;
+}
+
+.pricing-period-discount-row b {
+  color: #26353b;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pricing-period-no-discounts {
+  margin: 7px 0 0;
+  color: #8a9693;
+  font-size: 10px;
+}
+
+html[data-theme="dark"] .pricing-period-list-panel > .panel-heading {
+  border-color: #2b3940;
+}
+
+html[data-theme="dark"] .pricing-period-count,
+html[data-theme="dark"] .pricing-period-empty {
+  color: #91a09d;
+}
+
+html[data-theme="dark"] .pricing-period-item {
+  border-color: #2b3a41;
+  background: #162127;
+}
+
+html[data-theme="dark"] .pricing-period-item[open] {
+  border-color: #3e625b;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .12);
+}
+
+html[data-theme="dark"] .pricing-period-item summary::after,
+html[data-theme="dark"] .pricing-period-summary-main small {
+  color: #91a09d;
+}
+
+html[data-theme="dark"] .pricing-period-summary-main strong {
+  color: #e3ecea;
+}
+
+html[data-theme="dark"] .pricing-period-summary-price {
+  color: #7fc3b8;
+}
+
+html[data-theme="dark"] .pricing-period-body {
+  border-color: #2b3940;
+  background: #111b20;
+}
+
+html[data-theme="dark"] .pricing-period-metric {
+  border-color: #2e3d44;
+  background: #162127;
+}
+
+html[data-theme="dark"] .pricing-period-metric span,
+html[data-theme="dark"] .pricing-period-discounts > strong,
+html[data-theme="dark"] .pricing-period-no-discounts {
+  color: #91a09d;
+}
+
+html[data-theme="dark"] .pricing-period-metric strong {
+  color: #dfe9e6;
+}
+
+html[data-theme="dark"] .pricing-period-discount-row {
+  background: #1a292e;
+  color: #b7c4c1;
+}
+
+html[data-theme="dark"] .pricing-period-discount-row b {
+  color: #e4ecea;
+}
+
+@media (max-width: 900px) {
+  .pricing-period-item summary {
+    grid-template-columns: 1fr auto;
+  }
+
+  .pricing-period-summary-price {
+    grid-row: 2;
+  }
+
+  .pricing-period-metrics {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+}
