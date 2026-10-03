@@ -23,6 +23,7 @@ export interface PricePeriod {
   id: string;
   startDate: IsoDate;
   endDate: IsoDate;
+  note?: string;
   directFlexReferenceCents: number;
   otaUpliftPct: number;
   nonRefundableDiscountPct: number;
