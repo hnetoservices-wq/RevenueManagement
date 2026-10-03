@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { initPricingGridUi } from "./features/pricing/pricingGridUi";
+import { initPricingPeriodNotes } from "./features/pricing/pricingPeriodNotes";
 import { initPricingPeriodResetUi } from "./features/pricing/pricingPeriodResetUi";
 import { initPricingPeriodStatus } from "./features/pricing/pricingPeriodStatus";
 import { initPricingReferenceLine } from "./features/pricing/pricingReferenceLine";
@@ -26,6 +27,7 @@ initPricingGridUi();
 initPricingReferenceLine();
 initPricingPeriodResetUi();
 initPricingPeriodStatus();
+initPricingPeriodNotes();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
