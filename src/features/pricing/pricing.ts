@@ -139,7 +139,7 @@ export function validateDiscountEntry(discount: PriceDiscountEntry): string | nu
   return null;
 }
 
-export function validatePricePeriod(period: PricePeriod, existing: PricePeriod[]): string | null {
+export function validatePricePeriod(period: PricePeriod, _existing: PricePeriod[]): string | null {
   if (!period.startDate || !period.endDate) return "Defina as datas de início e fim.";
   if (period.endDate < period.startDate) return "A data final não pode ser anterior à data inicial.";
   if (period.directFlexReferenceCents <= 0) return "Defina um preço Direct Flex superior a zero.";
@@ -151,7 +151,6 @@ export function validatePricePeriod(period: PricePeriod, existing: PricePeriod[]
     const error = validateDiscountEntry(discount);
     if (error) return error;
   }
-  if (existing.some((item) => item.id !== period.id && pricePeriodsOverlap(period, item))) return "Este período sobrepõe-se a outro período já definido.";
   return null;
 }
 
