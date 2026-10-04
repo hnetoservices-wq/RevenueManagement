@@ -29,13 +29,22 @@ function availableYears(items: HTMLElement[]) {
   return [...years].sort((a, b) => a - b);
 }
 
-function applyFilter(items: HTMLElement[]) {
+function updateCount(items: HTMLElement[], count: HTMLElement | null) {
+  if (!count) return;
+  const visibleCount = selectedYear === ALL_PERIODS || selectedYear === null
+    ? items.length
+    : items.filter((item) => yearsForPeriod(item).includes(Number(selectedYear))).length;
+  count.textContent = `${visibleCount} ${visibleCount === 1 ? "período" : "períodos"}`;
+}
+
+function applyFilter(items: HTMLElement[], count: HTMLElement | null = null) {
   items.forEach((item) => {
     const visible = selectedYear === ALL_PERIODS
       || selectedYear === null
       || yearsForPeriod(item).includes(Number(selectedYear));
     item.hidden = !visible;
   });
+  updateCount(items, count);
 }
 
 function ensureYearFilter() {
@@ -56,6 +65,7 @@ function ensureYearFilter() {
     selectedYear = available.has(currentYear) ? currentYear : ALL_PERIODS;
   }
 
+  const count = heading.querySelector<HTMLElement>(".pricing-period-count");
   let control = heading.querySelector<HTMLElement>(".pricing-period-year-filter");
   let select = control?.querySelector<HTMLSelectElement>("select");
 
@@ -70,11 +80,10 @@ function ensureYearFilter() {
     select.setAttribute("aria-label", "Filtrar períodos por ano");
     select.addEventListener("change", () => {
       selectedYear = select!.value;
-      applyFilter(Array.from(list.querySelectorAll<HTMLElement>(".pricing-period-item")));
+      applyFilter(Array.from(list.querySelectorAll<HTMLElement>(".pricing-period-item")), heading.querySelector<HTMLElement>(".pricing-period-count"));
     });
 
     control.append(caption, select);
-    const count = heading.querySelector(".pricing-period-count");
     if (count) heading.insertBefore(control, count);
     else heading.appendChild(control);
   }
@@ -98,7 +107,7 @@ function ensureYearFilter() {
   }
 
   select.value = selectedYear ?? ALL_PERIODS;
-  applyFilter(items);
+  applyFilter(items, count);
 }
 
 function schedule() {
