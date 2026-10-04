@@ -17,27 +17,57 @@ function ptDateToIso(value: string) {
   return `${match[3]}-${match[2]}-${match[1]}`;
 }
 
+function periodsOverlap(a: { start: string; end: string }, b: { start: string; end: string }) {
+  return a.start <= b.end && b.start <= a.end;
+}
+
 function applyPeriodStatuses() {
   const today = localIsoDate();
+  const periods = Array.from(document.querySelectorAll<HTMLElement>(".pricing-period-summary-main strong"))
+    .map((dates) => {
+      const rawText = dates.dataset.periodDates || dates.textContent || "";
+      const cleanText = rawText.replace(/\s*(?:✓|⚠️?)\s*$/, "").trim();
+      const [startText, endText] = cleanText.split("→").map((part) => part.trim());
+      const start = ptDateToIso(startText || "");
+      const end = ptDateToIso(endText || "");
+      if (!start || !end) return null;
+      dates.dataset.periodDates = cleanText;
+      return { dates, cleanText, start, end };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-  document.querySelectorAll<HTMLElement>(".pricing-period-summary-main strong").forEach((dates) => {
-    const rawText = dates.dataset.periodDates || dates.textContent || "";
-    const cleanText = rawText.replace(/\s*✓\s*$/, "").trim();
-    const [startText, endText] = cleanText.split("→").map((part) => part.trim());
-    const start = ptDateToIso(startText || "");
-    const end = ptDateToIso(endText || "");
-    if (!start || !end) return;
+  const overlapping = new Set<HTMLElement>();
+  periods.forEach((period, index) => {
+    for (let otherIndex = index + 1; otherIndex < periods.length; otherIndex += 1) {
+      const other = periods[otherIndex];
+      if (periodsOverlap(period, other)) {
+        overlapping.add(period.dates);
+        overlapping.add(other.dates);
+      }
+    }
+  });
 
-    dates.dataset.periodDates = cleanText;
-    dates.classList.remove("pricing-period-date-current", "pricing-period-date-future");
+  periods.forEach(({ dates, cleanText, start, end }) => {
+    dates.classList.remove(
+      "pricing-period-date-current",
+      "pricing-period-date-future",
+      "pricing-period-date-overlap",
+    );
+
+    if (overlapping.has(dates)) {
+      dates.classList.add("pricing-period-date-overlap");
+      dates.textContent = `${cleanText} ⚠️`;
+      return;
+    }
 
     if (today >= start && today <= end) {
       dates.classList.add("pricing-period-date-current");
       dates.textContent = `${cleanText} ✓`;
-    } else {
-      dates.textContent = cleanText;
-      if (today < start) dates.classList.add("pricing-period-date-future");
+      return;
     }
+
+    dates.textContent = cleanText;
+    if (today < start) dates.classList.add("pricing-period-date-future");
   });
 }
 
