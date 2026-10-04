@@ -8,6 +8,11 @@
   font-weight: 850;
 }
 
+.pricing-period-summary-main strong.pricing-period-date-overlap {
+  color: #ff5a5f !important;
+  font-weight: 900;
+}
+
 html[data-theme="dark"] .pricing-period-summary-main strong.pricing-period-date-current,
 html:not([data-theme="light"]) .pricing-period-summary-main strong.pricing-period-date-current {
   color: #4ade80 !important;
@@ -18,10 +23,19 @@ html:not([data-theme="light"]) .pricing-period-summary-main strong.pricing-perio
   color: #f59e0b !important;
 }
 
+html[data-theme="dark"] .pricing-period-summary-main strong.pricing-period-date-overlap,
+html:not([data-theme="light"]) .pricing-period-summary-main strong.pricing-period-date-overlap {
+  color: #ff5a5f !important;
+}
+
 html[data-theme="light"] .pricing-period-summary-main strong.pricing-period-date-current {
   color: #16a34a !important;
 }
 
 html[data-theme="light"] .pricing-period-summary-main strong.pricing-period-date-future {
   color: #d97706 !important;
+}
+
+html[data-theme="light"] .pricing-period-summary-main strong.pricing-period-date-overlap {
+  color: #dc2626 !important;
 }
