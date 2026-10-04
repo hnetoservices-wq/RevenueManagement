@@ -1,3 +1,7 @@
+.pricing-period-list-panel .panel-heading {
+  gap: 16px;
+}
+
 .pricing-period-year-filter {
   margin-left: auto;
   display: flex;
@@ -6,6 +10,7 @@
   color: var(--text-muted, #8fa6aa);
   font-size: 0.78rem;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .pricing-period-year-filter select {
@@ -25,16 +30,31 @@
   outline-offset: 1px;
 }
 
+.pricing-period-year-filter + .pricing-period-count {
+  margin-left: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .pricing-period-item[hidden] {
   display: none !important;
 }
 
 @media (max-width: 900px) {
+  .pricing-period-list-panel .panel-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
   .pricing-period-year-filter {
     margin-left: 0;
   }
 
   .pricing-period-year-filter span {
     display: none;
+  }
+
+  .pricing-period-year-filter + .pricing-period-count {
+    margin-left: 0;
   }
 }
