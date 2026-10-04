@@ -1,0 +1,40 @@
+.pricing-period-year-filter {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted, #8fa6aa);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pricing-period-year-filter select {
+  min-width: 150px;
+  height: 34px;
+  padding: 0 34px 0 10px;
+  border: 1px solid var(--border, #294044);
+  border-radius: 8px;
+  background: var(--surface-2, #102025);
+  color: var(--text, #eef7f7);
+  font: inherit;
+  font-weight: 800;
+}
+
+.pricing-period-year-filter select:focus {
+  outline: 2px solid rgba(45, 212, 191, 0.28);
+  outline-offset: 1px;
+}
+
+.pricing-period-item[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  .pricing-period-year-filter {
+    margin-left: 0;
+  }
+
+  .pricing-period-year-filter span {
+    display: none;
+  }
+}
