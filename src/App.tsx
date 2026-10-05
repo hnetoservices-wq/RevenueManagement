@@ -40,6 +40,7 @@ import {
   type AnalysisFilters,
 } from "./features/filters/analysisFilters";
 import { parseAmenitizFile } from "./features/import/amenitiz";
+import { BatchImportModal } from "./features/import/BatchImportModal";
 import { OccupancyPage } from "./features/occupancy/OccupancyPage";
 import { PacePickupPage } from "./features/pace/PacePickupPage";
 import { PerformancePage } from "./features/performance/PerformancePage";
@@ -59,6 +60,11 @@ interface ChartPoint {
   revenue: number;
   sold: number;
   available: number;
+}
+
+interface ImportFileInput {
+  bytes: Uint8Array;
+  filename: string;
 }
 
 function money(cents: number | null, currency = "EUR") {
@@ -125,7 +131,7 @@ function App() {
   const [page, setPage] = useState<Page>("dashboard");
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [previews, setPreviews] = useState<ImportPreview[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [analysisFilters, setAnalysisFilters] = useState<AnalysisFilters>(DEFAULT_ANALYSIS_FILTERS);
@@ -195,14 +201,38 @@ function App() {
     return applyAnalysisFilters(property, snapshotReservations, analysisFilters).reservations;
   }, [property, analysisFilters]);
 
-  async function prepareImport(bytes: Uint8Array, filename: string) {
-    if (!property) return;
+  async function prepareImports(files: ImportFileInput[]) {
+    if (!property || !files.length) return;
     setImporting(true);
     setError(null);
+    const parsed: ImportPreview[] = [];
+    const failures: string[] = [];
+    const selectedHashes = new Set<string>();
+    const importedHashes = new Set(imports.map((item) => item.fileHash));
+    let duplicateCount = 0;
+
     try {
-      setPreview(await parseAmenitizFile(bytes, filename, property, DEFAULT_STATUS_MAPPING));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      for (const file of files) {
+        try {
+          const preview = await parseAmenitizFile(file.bytes, file.filename, property, DEFAULT_STATUS_MAPPING);
+          if (importedHashes.has(preview.fileHash) || selectedHashes.has(preview.fileHash)) {
+            duplicateCount += 1;
+            continue;
+          }
+          selectedHashes.add(preview.fileHash);
+          parsed.push(preview);
+        } catch (cause) {
+          failures.push(`${file.filename}: ${cause instanceof Error ? cause.message : String(cause)}`);
+        }
+      }
+
+      setPreviews(parsed);
+      if (duplicateCount > 0) {
+        setToast(`${duplicateCount} duplicate report${duplicateCount === 1 ? "" : "s"} skipped.`);
+      }
+      if (failures.length) {
+        setError(`${failures.length} report${failures.length === 1 ? "" : "s"} could not be read. ${failures.join(" | ")}`);
+      }
     } finally {
       setImporting(false);
     }
@@ -213,40 +243,75 @@ function App() {
       inputRef.current?.click();
       return;
     }
-    const path = await open({
-      multiple: false,
+    const selection = await open({
+      multiple: true,
       directory: false,
       filters: [{ name: "Amenitiz reservation report", extensions: ["xlsx", "csv"] }],
     });
-    if (!path) return;
-    const bytes = await readFile(path);
-    const filename = path.split(/[\\/]/).pop() ?? "Amenitiz report";
-    await prepareImport(bytes, filename);
+    if (!selection) return;
+    const paths = Array.isArray(selection) ? selection : [selection];
+    const files: ImportFileInput[] = [];
+    for (const path of paths) {
+      const bytes = await readFile(path);
+      files.push({ bytes, filename: path.split(/[\\/]/).pop() ?? "Amenitiz report" });
+    }
+    await prepareImports(files);
   }
 
-  async function browserFileSelected(file: File | undefined) {
-    if (!file) return;
-    await prepareImport(new Uint8Array(await file.arrayBuffer()), file.name);
+  async function browserFilesSelected(fileList: FileList | null) {
+    if (!fileList?.length) return;
+    const files = await Promise.all(Array.from(fileList).map(async (file): Promise<ImportFileInput> => ({
+      bytes: new Uint8Array(await file.arrayBuffer()),
+      filename: file.name,
+    })));
+    await prepareImports(files);
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  async function confirmImport() {
-    if (!preview) return;
+  async function confirmImports() {
+    if (!previews.length) return;
     setImporting(true);
     setError(null);
+
+    let importedCount = 0;
+    let importedReservations = 0;
+    let duplicateCount = 0;
+    const failedPreviews: ImportPreview[] = [];
+    const failures: string[] = [];
+    const ordered = [...previews].sort((a, b) => a.dataAsOf.localeCompare(b.dataAsOf) || a.filename.localeCompare(b.filename));
+
     try {
-      await repository.saveImport(preview);
-      await refresh(preview.propertyId);
-      setPreview(null);
-      setToast(`${preview.validRowCount} reservations imported successfully.`);
-    } catch (cause) {
-      setError(cause instanceof DuplicateImportError ? cause.message : `Import failed: ${String(cause)}`);
+      for (const preview of ordered) {
+        try {
+          await repository.saveImport(preview);
+          importedCount += 1;
+          importedReservations += preview.validRowCount;
+        } catch (cause) {
+          if (cause instanceof DuplicateImportError) {
+            duplicateCount += 1;
+          } else {
+            failedPreviews.push(preview);
+            failures.push(`${preview.filename}: ${String(cause)}`);
+          }
+        }
+      }
+
+      await refresh(propertyId);
+      setPreviews(failedPreviews);
+
+      const parts: string[] = [];
+      if (importedCount) parts.push(`${importedCount} report${importedCount === 1 ? "" : "s"} imported (${importedReservations} reservations)`);
+      if (duplicateCount) parts.push(`${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"} skipped`);
+      if (!parts.length && !failures.length) parts.push("No new reports imported");
+      if (parts.length) setToast(`${parts.join(" · ")}.`);
+      if (failures.length) setError(`${failures.length} report${failures.length === 1 ? "" : "s"} failed to import. ${failures.join(" | ")}`);
     } finally {
       setImporting(false);
     }
   }
 
   async function changeProperty(nextId: string) {
+    setPreviews([]);
     setPropertyId(nextId);
     setAnalysisFilters(DEFAULT_ANALYSIS_FILTERS);
     setLoading(true);
@@ -318,11 +383,11 @@ function App() {
           <div className="property-control"><label>Property</label><select value={propertyId} onChange={(event) => void changeProperty(event.target.value)}>{properties.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
           <div className="topbar-actions">
             {imports[0] && <span className="as-of">Data as of <strong>{imports[0].dataAsOf}</strong></span>}
-            <button className="primary-button" onClick={() => void chooseFile()} disabled={importing}>{importing ? "Reading report…" : "+ Import report"}</button>
+            <button className="primary-button" onClick={() => void chooseFile()} disabled={importing}>{importing ? "Reading reports…" : "+ Import report"}</button>
           </div>
         </header>
 
-        <input ref={inputRef} type="file" accept=".xlsx,.csv" hidden onChange={(event) => void browserFileSelected(event.target.files?.[0])} />
+        <input ref={inputRef} type="file" accept=".xlsx,.csv" multiple hidden onChange={(event) => void browserFilesSelected(event.target.files)} />
 
         <div className="workspace">
           {error && <div className="alert"><span>{error}</span><button onClick={() => setError(null)}>Dismiss</button></div>}
@@ -331,7 +396,8 @@ function App() {
         </div>
       </main>
 
-      {preview && <ImportModal preview={preview} setPreview={setPreview} onCancel={() => setPreview(null)} onConfirm={() => void confirmImport()} busy={importing} propertyName={property.name} />}
+      {previews.length === 1 && <ImportModal preview={previews[0]} setPreview={(value) => setPreviews([value])} onCancel={() => setPreviews([])} onConfirm={() => void confirmImports()} busy={importing} propertyName={property.name} />}
+      {previews.length > 1 && <BatchImportModal previews={previews} propertyName={property.name} busy={importing} onChange={(index, value) => setPreviews((current) => current.map((item, itemIndex) => itemIndex === index ? value : item))} onRemove={(index) => setPreviews((current) => current.filter((_, itemIndex) => itemIndex !== index))} onCancel={() => setPreviews([])} onConfirm={() => void confirmImports()} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
