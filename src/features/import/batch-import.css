@@ -1,0 +1,111 @@
+.batch-import-modal {
+  width: min(920px, calc(100vw - 40px));
+  max-height: min(820px, calc(100vh - 40px));
+  overflow: auto;
+}
+
+.batch-import-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.batch-import-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #294044);
+  border-radius: 10px;
+  background: var(--surface-2, #102025);
+}
+
+.batch-import-summary strong {
+  font-size: 1.15rem;
+}
+
+.batch-import-summary span {
+  color: var(--text-muted, #8fa6aa);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.batch-import-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.batch-import-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 34px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #294044);
+  border-radius: 10px;
+  background: var(--surface-2, #102025);
+}
+
+.batch-import-file {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.batch-import-file strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-import-file small,
+.batch-import-date span {
+  color: var(--text-muted, #8fa6aa);
+  font-size: 0.75rem;
+}
+
+.batch-import-date {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.batch-import-date input {
+  min-width: 150px;
+}
+
+.batch-import-remove {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border, #294044);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted, #8fa6aa);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.batch-import-remove:hover {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+@media (max-width: 760px) {
+  .batch-import-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .batch-import-row {
+    grid-template-columns: 1fr 34px;
+  }
+
+  .batch-import-date {
+    grid-column: 1 / -1;
+  }
+}
