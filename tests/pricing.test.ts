@@ -113,8 +113,8 @@ describe("price management", () => {
     });
   });
 
-  it("rejects overlapping pricing periods", () => {
-    expect(validatePricePeriod({ ...sheet1Period, id: "b", startDate: "2026-12-20", endDate: "2026-12-29" }, [sheet1Period])).toMatch(/sobrepõe/);
+  it("allows overlapping pricing periods so the UI can warn about them", () => {
+    expect(validatePricePeriod({ ...sheet1Period, id: "b", startDate: "2026-12-20", endDate: "2026-12-29" }, [sheet1Period])).toBeNull();
     expect(validatePricePeriod({ ...sheet1Period, id: "b", startDate: "2026-12-24", endDate: "2026-12-29" }, [sheet1Period])).toBeNull();
   });
 
