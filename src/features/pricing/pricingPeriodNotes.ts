@@ -42,7 +42,13 @@ function makeNoteInput(periodId: string, value: string) {
   input.setAttribute("aria-label", "Nota do período");
   input.title = "Máximo de 30 caracteres";
 
-  ["click", "mousedown", "pointerdown"].forEach((eventName) => {
+  // A click inside <summary> triggers its native <details> toggle even when
+  // propagation is stopped. Cancel that default action for the note only.
+  input.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  ["mousedown", "pointerdown", "dblclick"].forEach((eventName) => {
     input.addEventListener(eventName, (event) => event.stopPropagation());
   });
 
