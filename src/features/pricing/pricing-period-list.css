@@ -113,6 +113,57 @@
   font-weight: 750;
 }
 
+.pricing-period-settings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 0 2px 10px;
+}
+
+.pricing-period-settings .pricing-period-base-line {
+  padding: 0;
+}
+
+.pricing-period-ota-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 750;
+  color: #53635f;
+  white-space: nowrap;
+}
+
+.pricing-period-ota-edit input {
+  width: 65px;
+  height: 29px;
+  padding: 4px 7px;
+  border: 1px solid #bdc9c6;
+  border-radius: 6px;
+  background: #fff;
+  color: #29373f;
+  font: inherit;
+  font-weight: 800;
+  text-align: right;
+}
+
+.pricing-period-ota-edit input:focus-visible {
+  outline: 2px solid #58a89b;
+  outline-offset: 1px;
+}
+
+html[data-theme="dark"] .pricing-period-ota-edit {
+  color: #b7c4c1;
+}
+
+html[data-theme="dark"] .pricing-period-ota-edit input {
+  border-color: #405159;
+  background: #162127;
+  color: #e3ecea;
+}
+
 .pricing-period-table-wrap {
   width: 100%;
   overflow-x: auto;
