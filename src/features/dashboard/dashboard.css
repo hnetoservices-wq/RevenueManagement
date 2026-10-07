@@ -4,6 +4,26 @@
   gap: 10px;
 }
 
+
+.dashboard-heading-controls .filters {
+  position: relative;
+}
+
+.dashboard-heading-controls .filters input[aria-invalid="true"] {
+  border-color: #d76b65;
+}
+
+.dashboard-date-warning {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 3px);
+  left: 0;
+  color: #d76b65;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .dashboard-comparison {
   position: relative;
 }
