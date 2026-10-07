@@ -528,7 +528,35 @@ function buildPeriodItem(period: PricePeriod, config: PriceManagementConfig, ref
   const baseLine = document.createElement("div");
   baseLine.className = "pricing-period-base-line";
   baseLine.textContent = `Discounts applied to ${referenceRoomName} Base Price: ${compactMoney(referenceBaseCents)}`;
-  body.appendChild(baseLine);
+
+  const settings = document.createElement("div");
+  settings.className = "pricing-period-settings";
+  const otaLabel = document.createElement("label");
+  otaLabel.className = "pricing-period-ota-edit";
+  const otaText = document.createElement("span");
+  otaText.textContent = "Incremento OTA";
+  const otaInput = document.createElement("input");
+  otaInput.type = "text";
+  otaInput.inputMode = "decimal";
+  otaInput.value = percentageInput(period.otaUpliftPct);
+  otaInput.setAttribute("aria-label", "Incremento OTA do período");
+  otaInput.addEventListener("change", () => {
+    const value = otaInput.value.trim().replace(",", ".");
+    const increment = value ? Number(value) : NaN;
+    if (!Number.isFinite(increment) || increment < 0) {
+      setStatus(body, "Introduza um incremento OTA válido (zero ou positivo).", "error");
+      return;
+    }
+    void updateStoredPeriod(period.id, (current) => ({
+      ...current,
+      otaUpliftPct: increment,
+    }), otaLabel);
+  });
+  const otaSuffix = document.createElement("span");
+  otaSuffix.textContent = "%";
+  otaLabel.append(otaText, otaInput, otaSuffix);
+  settings.append(baseLine, otaLabel);
+  body.appendChild(settings);
   body.appendChild(buildEditablePeriodTable(period, config));
 
   const actions = document.createElement("div");
