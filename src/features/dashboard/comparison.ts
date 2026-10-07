@@ -9,7 +9,7 @@ import { calculateMetrics } from "../../domain/analytics";
  */
 export function isSafeDashboardDateRange(start: string, end: string): boolean {
   const validDate = (value: string): Date | null => {
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
     const year = Number(value.slice(0, 4));
     if (year < 1900 || year > 2100) return null;
     const date = parseISO(value);
