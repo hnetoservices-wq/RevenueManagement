@@ -18,6 +18,7 @@ import type { DashboardFilters, DashboardMetrics, IsoDate, Property, Reservation
 import {
   availableDashboardComparisonYears,
   calculateDashboardYearComparisons,
+  isSafeDashboardDateRange,
   type DashboardYearComparison,
 } from "./comparison";
 import "./dashboard.css";
@@ -265,7 +266,41 @@ function DashboardComparisonPicker({ options, selected, onChange }: { options: n
 }
 
 function DateFilters({ filters, setFilters }: { filters: DashboardFilters; setFilters: (value: DashboardFilters) => void }) {
-  return <div className="filters"><label>From<input type="date" value={filters.startDate} onChange={(event) => setFilters({ ...filters, startDate: event.target.value as IsoDate })} /></label><label>To<input type="date" value={filters.endDate} onChange={(event) => setFilters({ ...filters, endDate: event.target.value as IsoDate })} /></label><label>Revenue<select value={filters.revenueBasis} onChange={(event) => setFilters({ ...filters, revenueBasis: event.target.value as DashboardFilters["revenueBasis"] })}><option value="inclusive">Incl. tax</option><option value="exclusive">Excl. tax</option></select></label></div>;
+  // Keep an unfinished native date input out of the analytical filters. When a
+  // year is typed segment by segment, Chrome can briefly return "0002-01-01".
+  const [draftStart, setDraftStart] = useState<string>(filters.startDate);
+  const [draftEnd, setDraftEnd] = useState<string>(filters.endDate);
+  const [invalidRange, setInvalidRange] = useState(false);
+
+  useEffect(() => {
+    setDraftStart(filters.startDate);
+    setDraftEnd(filters.endDate);
+    setInvalidRange(false);
+  }, [filters.startDate, filters.endDate]);
+
+  function updateDraft(start: string, end: string) {
+    setDraftStart(start);
+    setDraftEnd(end);
+    setInvalidRange(false);
+    if (!isSafeDashboardDateRange(start, end)) return;
+
+    setFilters({
+      ...filters,
+      startDate: start as IsoDate,
+      endDate: end as IsoDate,
+    });
+  }
+
+  function validateDraftOnBlur() {
+    setInvalidRange(!isSafeDashboardDateRange(draftStart, draftEnd));
+  }
+
+  return <div className="filters">
+    <label>From<input type="date" min="1900-01-01" max="2100-12-31" value={draftStart} aria-invalid={invalidRange} onChange={(event) => updateDraft(event.target.value, draftEnd)} onBlur={validateDraftOnBlur} /></label>
+    <label>To<input type="date" min="1900-01-01" max="2100-12-31" value={draftEnd} aria-invalid={invalidRange} onChange={(event) => updateDraft(draftStart, event.target.value)} onBlur={validateDraftOnBlur} /></label>
+    <label>Revenue<select value={filters.revenueBasis} onChange={(event) => setFilters({ ...filters, revenueBasis: event.target.value as DashboardFilters["revenueBasis"] })}><option value="inclusive">Incl. tax</option><option value="exclusive">Excl. tax</option></select></label>
+    {invalidRange && <span className="dashboard-date-warning" role="status">Verifique as datas (máximo 10 anos).</span>}
+  </div>;
 }
 
 function KpiCard({ label, value, comparisons, note }: { label: string; value: string; comparisons: DeltaRow[]; note?: string }) {
