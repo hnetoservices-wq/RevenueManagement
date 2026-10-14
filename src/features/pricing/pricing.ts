@@ -5,6 +5,8 @@ export const DEFAULT_OTA_UPLIFT_PCT = 20;
 export const DEFAULT_NON_REFUNDABLE_DISCOUNT_PCT = 10;
 
 export const DISCOUNT_KIND_LABELS: Record<PriceDiscountKind, string> = {
+  direct_price_adjustment: "Ajuste de Preço DIR",
+  ota_price_adjustment: "Ajuste de Preço OTA",
   loyalty: "Fidelização",
   mobile: "Móveis",
   basic_deal: "Basic Deal",
@@ -39,6 +41,7 @@ export interface DiscountRateResult {
   active: boolean;
   stackDescription: string;
   directCents: number | null;
+  directNonRefundableCents: number | null;
   bookingFlexCents: number | null;
   bookingNonRefundableCents: number | null;
   expediaFlexCents: number | null;
@@ -119,6 +122,8 @@ export function defaultDiscountName(kind: PriceDiscountKind): string {
 
 export function discountStackDescription(kind: PriceDiscountKind): string {
   switch (kind) {
+    case "direct_price_adjustment":
+    case "ota_price_adjustment": return "Revisão do preço base (não é promoção)";
     case "loyalty": return "Não acumula com outra Fidelização";
     case "mobile": return "Fidelização";
     case "basic_deal": return "Fidelização + Móveis";
@@ -184,14 +189,38 @@ function resultForOtaFlex(flexCents: number, nrFactor: number): { flex: number; 
   return { flex, nr: Math.round(flex * nrFactor) };
 }
 
-export function calculateDiscountRateResults(period: PricePeriod, otaFlexCents: number, directNrCents: number): DiscountRateResult[] {
+/**
+ * Sequential price revisions are a history of the underlying channel price,
+ * not additional promotional discounts. Keep factors at full precision and
+ * round only for display to avoid compounding cent-rounding errors.
+ */
+function priceAdjustmentFactors(period: PricePeriod) {
+  let direct = 1;
+  let ota = 1;
+  for (const entry of period.discounts) {
+    if (!entry.active) continue;
+    if (entry.kind === "direct_price_adjustment") direct *= discountFactor(entry.discountPct);
+    if (entry.kind === "ota_price_adjustment") ota *= discountFactor(entry.discountPct);
+  }
+  return { direct, ota };
+}
+
+export function calculateDiscountRateResults(
+  period: PricePeriod,
+  otaFlexCents: number,
+  directNrCents: number,
+  directFlexCents = period.directFlexReferenceCents,
+): DiscountRateResult[] {
   if (otaFlexCents <= 0) return [];
   const nrFactor = discountFactor(period.nonRefundableDiscountPct);
+  const originalOtaNrCents = Math.round(otaFlexCents * nrFactor);
   const loyaltyStack = stackedLoyaltyFactor(period);
   const mobileStack = stackedMobileFactor(period);
   const rows: DiscountRateResult[] = [];
-  const bookingNrCandidates: number[] = [Math.round(otaFlexCents * nrFactor)];
-  const expediaNrCandidates: number[] = [Math.round(otaFlexCents * nrFactor)];
+  const bookingNrCandidates: number[] = [originalOtaNrCents];
+  const expediaNrCandidates: number[] = [originalOtaNrCents];
+  let directAdjustmentFactor = 1;
+  let otaAdjustmentFactor = 1;
 
   for (const discount of period.discounts.filter((item) => item.kind !== "direct_last_minute" && item.kind !== "ota_last_minute")) {
     const base: DiscountRateResult = {
@@ -202,6 +231,7 @@ export function calculateDiscountRateResults(period: PricePeriod, otaFlexCents: 
       active: discount.active,
       stackDescription: discountStackDescription(discount.kind),
       directCents: null,
+      directNonRefundableCents: null,
       bookingFlexCents: null,
       bookingNonRefundableCents: null,
       expediaFlexCents: null,
@@ -213,6 +243,31 @@ export function calculateDiscountRateResults(period: PricePeriod, otaFlexCents: 
     }
 
     const ownFactor = discountFactor(discount.discountPct);
+    if (discount.kind === "direct_price_adjustment") {
+      directAdjustmentFactor *= ownFactor;
+      base.directCents = Math.round(directFlexCents * directAdjustmentFactor);
+      base.directNonRefundableCents = Math.round(directNrCents * directAdjustmentFactor);
+      rows.push(base);
+      continue;
+    }
+
+    if (discount.kind === "ota_price_adjustment") {
+      otaAdjustmentFactor *= ownFactor;
+      const adjustedOtaFlex = Math.round(otaFlexCents * otaAdjustmentFactor);
+      const adjustedOtaNr = Math.round(originalOtaNrCents * otaAdjustmentFactor);
+      base.bookingFlexCents = adjustedOtaFlex;
+      base.bookingNonRefundableCents = adjustedOtaNr;
+      base.expediaFlexCents = adjustedOtaFlex;
+      base.expediaNonRefundableCents = adjustedOtaNr;
+      bookingNrCandidates.push(adjustedOtaNr);
+      expediaNrCandidates.push(adjustedOtaNr);
+      rows.push(base);
+      continue;
+    }
+
+    // An ordinary OTA promotion starts from the most recent OTA price. Price
+    // revisions themselves are never multiplied as promotional discount stacks.
+    const currentOtaFlexCents = Math.round(otaFlexCents * otaAdjustmentFactor);
     let bookingFactor: number | null = null;
     let expediaFactor: number | null = null;
     switch (discount.kind) {
@@ -244,13 +299,13 @@ export function calculateDiscountRateResults(period: PricePeriod, otaFlexCents: 
     }
 
     if (bookingFactor !== null) {
-      const calculated = resultForOtaFlex(otaFlexCents * bookingFactor, nrFactor);
+      const calculated = resultForOtaFlex(currentOtaFlexCents * bookingFactor, nrFactor);
       base.bookingFlexCents = calculated.flex;
       base.bookingNonRefundableCents = calculated.nr;
       bookingNrCandidates.push(calculated.nr);
     }
     if (expediaFactor !== null) {
-      const calculated = resultForOtaFlex(otaFlexCents * expediaFactor, nrFactor);
+      const calculated = resultForOtaFlex(currentOtaFlexCents * expediaFactor, nrFactor);
       base.expediaFlexCents = calculated.flex;
       base.expediaNonRefundableCents = calculated.nr;
       expediaNrCandidates.push(calculated.nr);
@@ -266,7 +321,8 @@ export function calculateDiscountRateResults(period: PricePeriod, otaFlexCents: 
       discountPct: discount.discountPct,
       active: discount.active,
       stackDescription: discountStackDescription(discount.kind),
-      directCents: discount.active ? Math.round(directNrCents * discountFactor(discount.discountPct)) : null,
+      directCents: discount.active ? Math.round(Math.round(directNrCents * directAdjustmentFactor) * discountFactor(discount.discountPct)) : null,
+      directNonRefundableCents: null,
       bookingFlexCents: null,
       bookingNonRefundableCents: null,
       expediaFlexCents: null,
@@ -286,6 +342,7 @@ export function calculateDiscountRateResults(period: PricePeriod, otaFlexCents: 
       active: discount.active,
       stackDescription: discountStackDescription(discount.kind),
       directCents: null,
+      directNonRefundableCents: null,
       bookingFlexCents: booking,
       bookingNonRefundableCents: null,
       expediaFlexCents: expedia,
@@ -311,11 +368,16 @@ export function projectPeriodRoomRateRows(roomTypes: RoomType[], config: PriceMa
 
   return roomTypes.map((room) => {
     const basePriceCents = config.basePricesCents[room.id] ?? 0;
-    const directFlexCents = basePriceCents > 0 ? Math.round(basePriceCents * directScale) : 0;
-    const directNonRefundableCents = directFlexCents > 0 ? Math.round(directFlexCents * nrFactor) : 0;
-    const otaFlexCents = basePriceCents > 0 ? Math.round(basePriceCents * otaScale) : 0;
-    const otaNonRefundableCents = otaFlexCents > 0 ? Math.round(otaFlexCents * nrFactor) : 0;
-    const discountRows = calculateDiscountRateResults(period, otaFlexCents, directNonRefundableCents);
+    const baseDirectFlex = basePriceCents > 0 ? Math.round(basePriceCents * directScale) : 0;
+    const baseDirectNr = Math.round(baseDirectFlex * nrFactor);
+    const baseOtaFlex = basePriceCents > 0 ? Math.round(basePriceCents * otaScale) : 0;
+    const baseOtaNr = Math.round(baseOtaFlex * nrFactor);
+    const adjustments = priceAdjustmentFactors(period);
+    const directFlexCents = Math.round(baseDirectFlex * adjustments.direct);
+    const directNonRefundableCents = Math.round(baseDirectNr * adjustments.direct);
+    const otaFlexCents = Math.round(baseOtaFlex * adjustments.ota);
+    const otaNonRefundableCents = Math.round(baseOtaNr * adjustments.ota);
+    const discountRows = calculateDiscountRateResults(period, baseOtaFlex, baseDirectNr, baseDirectFlex);
     const lowestBookingCents = lowestPositive(
       discountRows.flatMap((item) => [item.bookingFlexCents, item.bookingNonRefundableCents]),
       otaNonRefundableCents,
