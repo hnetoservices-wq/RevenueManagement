@@ -228,6 +228,63 @@ describe("price management", () => {
     expect(adjustedRow.otaFlexCents).toBe(Math.round(baselineRow.otaFlexCents * 0.9));
   });
 
+  it("applies a named Direct-only offer to adjusted Direct Flex and NR without touching OTA rates", () => {
+    const period: PricePeriod = {
+      ...sheet1Period,
+      directFlexReferenceCents: 9750,
+      discounts: [
+        { id: "loy", kind: "loyalty", name: "Fidelização", discountPct: 10, active: true },
+        { id: "direct-offer", kind: "direct_booking_discount", name: "Oferta Website", discountPct: 10, active: true },
+        { id: "dir-adjust", kind: "direct_price_adjustment", name: "Ajuste de Preço DIR", discountPct: 5, active: true },
+        { id: "mobile", kind: "mobile", name: "Móveis", discountPct: 10, active: true },
+      ],
+    };
+    const base = calculatePeriodReferenceRates(period)!;
+    const results = calculateDiscountRateResults(period, base.otaFlexCents, base.directNonRefundableCents);
+    const byId = Object.fromEntries(results.map((row) => [row.discountId, row]));
+
+    expect(results.map((row) => row.discountId)).toEqual(["dir-adjust", "loy", "direct-offer", "mobile"]);
+    expect(byId["dir-adjust"]).toMatchObject({ directCents: 9263, directNonRefundableCents: 8336 });
+    expect(byId["direct-offer"]).toMatchObject({
+      name: "Oferta Website",
+      directCents: 8337,
+      directNonRefundableCents: 7502,
+      bookingFlexCents: null,
+      bookingNonRefundableCents: null,
+      expediaFlexCents: null,
+      expediaNonRefundableCents: null,
+    });
+    expect(byId.loy.bookingFlexCents).toBe(Math.round(base.otaFlexCents * 0.9));
+    expect(byId.mobile.bookingFlexCents).toBe(Math.round(base.otaFlexCents * 0.9 * 0.9));
+    expect(projectPeriodRoomRateRows(rooms, config, period)[0]).toMatchObject({
+      directFlexCents: 9263,
+      directNonRefundableCents: 8336,
+    });
+  });
+
+  it("keeps multiple named Direct offers independent of each other and Direct last minute", () => {
+    const period: PricePeriod = {
+      ...sheet1Period,
+      directFlexReferenceCents: 9750,
+      discounts: [
+        { id: "direct-a", kind: "direct_booking_discount", name: "Reservas Website", discountPct: 5, active: true },
+        { id: "direct-b", kind: "direct_booking_discount", name: "Cupão Parceiros", discountPct: 10, active: true },
+        { id: "last-minute", kind: "direct_last_minute", name: "Directa - Last Minute", discountPct: 15, active: true },
+        { id: "dir-adjust", kind: "direct_price_adjustment", name: "Ajuste de Preço DIR", discountPct: 5, active: true },
+      ],
+    };
+    const base = calculatePeriodReferenceRates(period)!;
+    const rows = calculateDiscountRateResults(period, base.otaFlexCents, base.directNonRefundableCents);
+    const byId = Object.fromEntries(rows.map((row) => [row.discountId, row]));
+
+    expect(byId["direct-a"]).toMatchObject({ directCents: 8800, directNonRefundableCents: 7919 });
+    expect(byId["direct-b"]).toMatchObject({ directCents: 8337, directNonRefundableCents: 7502 });
+    expect(byId["last-minute"]).toMatchObject({ directCents: 7086, directNonRefundableCents: null });
+    expect(byId["direct-a"].bookingFlexCents).toBeNull();
+    expect(byId["direct-b"].expediaFlexCents).toBeNull();
+    expect(byId["dir-adjust"]).toMatchObject({ directCents: 9263, directNonRefundableCents: 8336 });
+  });
+
   it("allows overlapping pricing periods so the UI can warn about them", () => {
     expect(validatePricePeriod({ ...sheet1Period, id: "b", startDate: "2026-12-20", endDate: "2026-12-29" }, [sheet1Period])).toBeNull();
     expect(validatePricePeriod({ ...sheet1Period, id: "b", startDate: "2026-12-24", endDate: "2026-12-29" }, [sheet1Period])).toBeNull();
