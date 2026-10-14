@@ -10,6 +10,7 @@ import {
   calculatePeriodReferenceRates,
   configuredBasePriceRange,
   defaultDiscountName,
+  orderPeriodDiscounts,
   projectPeriodRoomRateRows,
   validatePricePeriod,
 } from "./pricing";
@@ -170,7 +171,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
     directFlexReferenceCents: toCents(periodPrice),
     otaUpliftPct: parsePercentage(periodOtaUplift),
     nonRefundableDiscountPct: parsePercentage(periodNrDiscount),
-    discounts: periodDiscounts.map(normalizedDiscount),
+    discounts: orderPeriodDiscounts(periodDiscounts.map(normalizedDiscount)),
   }), [editingPeriodId, periodDiscounts, periodEnd, periodNrDiscount, periodOtaUplift, periodPrice, periodStart]);
 
   const previewRates = calculatePeriodReferenceRates(previewPeriod);
@@ -178,8 +179,9 @@ export function PriceManagementPage({ property }: { property: Property }) {
     ? calculateDiscountRateResults(previewPeriod, previewRates.otaFlexCents, previewRates.directNonRefundableCents)
     : [];
   const resultById = new Map(previewResults.map((item) => [item.discountId, item]));
-  const regularDiscounts = periodDiscounts.filter((item) => !isLastMinute(item.kind));
-  const lastMinuteDiscounts = periodDiscounts.filter((item) => isLastMinute(item.kind));
+  const orderedDiscounts = orderPeriodDiscounts(periodDiscounts);
+  const regularDiscounts = orderedDiscounts.filter((item) => !isLastMinute(item.kind));
+  const lastMinuteDiscounts = orderedDiscounts.filter((item) => isLastMinute(item.kind));
   const directCoefficient = previewRates && referencePrice > 0 ? previewRates.directFlexCents / referencePrice : null;
   const otaCoefficient = previewRates && referencePrice > 0 ? previewRates.otaFlexCents / referencePrice : null;
   const dateRowSpan = regularDiscounts.length + lastMinuteDiscounts.length + 2;
@@ -216,7 +218,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
     setPeriodPrice(toInputValue(period.directFlexReferenceCents));
     setPeriodOtaUplift(percentageInput(period.otaUpliftPct));
     setPeriodNrDiscount(percentageInput(period.nonRefundableDiscountPct));
-    setPeriodDiscounts(period.discounts.map((item) => ({ ...item, active: true })));
+    setPeriodDiscounts(orderPeriodDiscounts(period.discounts.map((item) => ({ ...item, active: true }))));
     setPeriodError(null);
   }
 
@@ -226,7 +228,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
   }
 
   function updateDiscount(id: string, patch: Partial<PriceDiscountEntry>) {
-    setPeriodDiscounts((current) => current.map((item) => item.id === id ? { ...item, ...patch, active: true } : item));
+    setPeriodDiscounts((current) => orderPeriodDiscounts(current.map((item) => item.id === id ? { ...item, ...patch, active: true } : item)));
     setPeriodError(null);
   }
 
@@ -248,7 +250,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
       id: editingPeriodId ?? crypto.randomUUID(),
       startDate: periodStart as IsoDate,
       endDate: periodEnd as IsoDate,
-      discounts: periodDiscounts.map(normalizedDiscount),
+      discounts: orderPeriodDiscounts(periodDiscounts.map(normalizedDiscount)),
     };
     const validation = validatePricePeriod(period, draftConfig.periods);
     if (validation) {
@@ -297,13 +299,18 @@ export function PriceManagementPage({ property }: { property: Property }) {
     const result = resultById.get(item.id);
     if (!result || !previewRates) return { effective: null, bookingDelta: null, expediaDelta: null };
 
-    const index = periodDiscounts.findIndex((entry) => entry.id === item.id);
-    const preceding = index < 0 ? [] : periodDiscounts.slice(0, index);
+    const index = orderedDiscounts.findIndex((entry) => entry.id === item.id);
+    const preceding = index < 0 ? [] : orderedDiscounts.slice(0, index);
     const directFactor = preceding
       .filter((entry) => entry.active && entry.kind === "direct_price_adjustment")
       .reduce((factor, entry) => factor * (1 - entry.discountPct / 100), 1);
-    const comparableDirectBase = Math.round(previewRates.directFlexCents * directFactor);
-    const comparableDirectNr = Math.round(previewRates.directNonRefundableCents * directFactor);
+    const finalDirectFactor = orderedDiscounts
+      .filter((entry) => entry.active && entry.kind === "direct_price_adjustment")
+      .reduce((factor, entry) => factor * (1 - entry.discountPct / 100), 1);
+    const comparableDirectBase = Math.round(previewRates.directFlexCents * (
+      item.kind === "direct_price_adjustment" ? directFactor : finalDirectFactor
+    ));
+    const comparableDirectNr = Math.round(previewRates.directNonRefundableCents * finalDirectFactor);
     if (item.kind === "direct_last_minute") {
       return {
         effective: effectiveDiscount(comparableDirectNr, result.directCents),
