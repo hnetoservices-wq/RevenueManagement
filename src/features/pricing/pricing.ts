@@ -194,6 +194,19 @@ function resultForOtaFlex(flexCents: number, nrFactor: number): { flex: number; 
  * not additional promotional discounts. Keep factors at full precision and
  * round only for display to avoid compounding cent-rounding errors.
  */
+/**
+ * Price revisions must precede promotional discounts. Keep the chronology
+ * within each group, including repeated revisions to the same channel.
+ */
+export function orderPeriodDiscounts<T extends PriceDiscountEntry>(discounts: T[]): T[] {
+  const isAdjustment = (entry: PriceDiscountEntry) =>
+    entry.kind === "direct_price_adjustment" || entry.kind === "ota_price_adjustment";
+  return [
+    ...discounts.filter(isAdjustment),
+    ...discounts.filter((entry) => !isAdjustment(entry)),
+  ];
+}
+
 function priceAdjustmentFactors(period: PricePeriod) {
   let direct = 1;
   let ota = 1;
@@ -217,12 +230,17 @@ export function calculateDiscountRateResults(
   const loyaltyStack = stackedLoyaltyFactor(period);
   const mobileStack = stackedMobileFactor(period);
   const rows: DiscountRateResult[] = [];
-  const bookingNrCandidates: number[] = [originalOtaNrCents];
-  const expediaNrCandidates: number[] = [originalOtaNrCents];
+  // Base promotional prices on the FINAL revised rate, even when a price
+  // adjustment was appended after promotional rows in an older saved period.
+  const adjustments = priceAdjustmentFactors(period);
+  const adjustedOtaFlexCents = Math.round(otaFlexCents * adjustments.ota);
+  const adjustedOtaNrCents = Math.round(originalOtaNrCents * adjustments.ota);
+  const bookingNrCandidates: number[] = [adjustedOtaNrCents];
+  const expediaNrCandidates: number[] = [adjustedOtaNrCents];
   let directAdjustmentFactor = 1;
   let otaAdjustmentFactor = 1;
 
-  for (const discount of period.discounts.filter((item) => item.kind !== "direct_last_minute" && item.kind !== "ota_last_minute")) {
+  for (const discount of orderPeriodDiscounts(period.discounts).filter((item) => item.kind !== "direct_last_minute" && item.kind !== "ota_last_minute")) {
     const base: DiscountRateResult = {
       discountId: discount.id,
       name: discount.name,
@@ -265,9 +283,9 @@ export function calculateDiscountRateResults(
       continue;
     }
 
-    // An ordinary OTA promotion starts from the most recent OTA price. Price
-    // revisions themselves are never multiplied as promotional discount stacks.
-    const currentOtaFlexCents = Math.round(otaFlexCents * otaAdjustmentFactor);
+    // Promotional discounts are calculated from the final revised OTA price,
+    // not from the pre-adjustment price or earlier promotional rows.
+    const currentOtaFlexCents = adjustedOtaFlexCents;
     let bookingFactor: number | null = null;
     let expediaFactor: number | null = null;
     switch (discount.kind) {
@@ -321,7 +339,7 @@ export function calculateDiscountRateResults(
       discountPct: discount.discountPct,
       active: discount.active,
       stackDescription: discountStackDescription(discount.kind),
-      directCents: discount.active ? Math.round(Math.round(directNrCents * directAdjustmentFactor) * discountFactor(discount.discountPct)) : null,
+      directCents: discount.active ? Math.round(Math.round(directNrCents * adjustments.direct) * discountFactor(discount.discountPct)) : null,
       directNonRefundableCents: null,
       bookingFlexCents: null,
       bookingNonRefundableCents: null,
