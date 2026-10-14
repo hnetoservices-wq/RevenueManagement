@@ -3,6 +3,7 @@ import {
   calculatePeriodReferenceRates,
   defaultDiscountName,
   DISCOUNT_KIND_LABELS,
+  orderPeriodDiscounts,
   validatePricePeriod,
 } from "./pricing";
 import { priceManagementStore } from "./store";
@@ -182,7 +183,7 @@ async function updateStoredPeriod(
       ...original,
       discounts: original.discounts.map((item) => ({ ...item })),
     });
-    updated.discounts = updated.discounts.map(normalizedDiscount);
+    updated.discounts = orderPeriodDiscounts(updated.discounts.map(normalizedDiscount));
 
     const validation = validatePricePeriod(updated, config.periods);
     if (validation) {
@@ -218,13 +219,19 @@ function controlValues(period: PricePeriod, discount: PriceDiscountEntry) {
   const result = results.find((item) => item.discountId === discount.id);
   if (!result) return { effective: null, bookingDelta: null, expediaDelta: null };
 
-  const index = period.discounts.findIndex((item) => item.id === discount.id);
-  const preceding = index < 0 ? [] : period.discounts.slice(0, index);
+  const ordered = orderPeriodDiscounts(period.discounts);
+  const index = ordered.findIndex((item) => item.id === discount.id);
+  const preceding = index < 0 ? [] : ordered.slice(0, index);
   const directFactor = preceding
     .filter((item) => item.active && item.kind === "direct_price_adjustment")
     .reduce((factor, item) => factor * (1 - item.discountPct / 100), 1);
-  const comparableDirectBase = Math.round(rates.directFlexCents * directFactor);
-  const comparableDirectNr = Math.round(rates.directNonRefundableCents * directFactor);
+  const finalDirectFactor = ordered
+    .filter((item) => item.active && item.kind === "direct_price_adjustment")
+    .reduce((factor, item) => factor * (1 - item.discountPct / 100), 1);
+  const comparableDirectBase = Math.round(rates.directFlexCents * (
+    discount.kind === "direct_price_adjustment" ? directFactor : finalDirectFactor
+  ));
+  const comparableDirectNr = Math.round(rates.directNonRefundableCents * finalDirectFactor);
   if (discount.kind === "direct_last_minute") {
     return {
       effective: effectiveDiscount(comparableDirectNr, result.directCents),
@@ -520,7 +527,7 @@ function buildEditablePeriodTable(period: PricePeriod, config: PriceManagementCo
   appendControlCells(baseRow, period);
   tbody.appendChild(baseRow);
 
-  period.discounts.forEach((discount) => appendDiscountRow(tbody, period, discount));
+  orderPeriodDiscounts(period.discounts).forEach((discount) => appendDiscountRow(tbody, period, discount));
   table.appendChild(tbody);
   wrap.appendChild(table);
   return wrap;
