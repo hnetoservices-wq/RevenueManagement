@@ -218,9 +218,23 @@ function controlValues(period: PricePeriod, discount: PriceDiscountEntry) {
   const result = results.find((item) => item.discountId === discount.id);
   if (!result) return { effective: null, bookingDelta: null, expediaDelta: null };
 
+  const index = period.discounts.findIndex((item) => item.id === discount.id);
+  const preceding = index < 0 ? [] : period.discounts.slice(0, index);
+  const directFactor = preceding
+    .filter((item) => item.active && item.kind === "direct_price_adjustment")
+    .reduce((factor, item) => factor * (1 - item.discountPct / 100), 1);
+  const comparableDirectBase = Math.round(rates.directFlexCents * directFactor);
+  const comparableDirectNr = Math.round(rates.directNonRefundableCents * directFactor);
   if (discount.kind === "direct_last_minute") {
     return {
-      effective: effectiveDiscount(rates.directNonRefundableCents, result.directCents),
+      effective: effectiveDiscount(comparableDirectNr, result.directCents),
+      bookingDelta: null,
+      expediaDelta: null,
+    };
+  }
+  if (discount.kind === "direct_price_adjustment") {
+    return {
+      effective: effectiveDiscount(rates.directFlexCents, result.directCents),
       bookingDelta: null,
       expediaDelta: null,
     };
@@ -230,7 +244,7 @@ function controlValues(period: PricePeriod, discount: PriceDiscountEntry) {
   const finalOta = result.bookingFlexCents ?? result.expediaFlexCents;
   const comparableDirect = discount.kind === "ota_last_minute" && directLastMinute
     ? directLastMinute
-    : rates.directFlexCents;
+    : comparableDirectBase;
 
   return {
     effective: effectiveDiscount(rates.otaFlexCents, finalOta),
@@ -285,6 +299,19 @@ function appendRateCells(row: HTMLTableRowElement, period: PricePeriod, discount
     const expedia = td();
     expedia.colSpan = 2;
     row.append(direct, booking, expedia);
+    return;
+  }
+
+  if (discount.kind === "direct_price_adjustment") {
+    const flex = td("sheet-rate");
+    flex.textContent = money(result?.directCents);
+    const nr = td("sheet-rate");
+    nr.textContent = money(result?.directNonRefundableCents);
+    const booking = td();
+    booking.colSpan = 2;
+    const expedia = td();
+    expedia.colSpan = 2;
+    row.append(flex, nr, booking, expedia);
     return;
   }
 
