@@ -5,6 +5,7 @@ import {
   buildRoomBasePriceRows,
   calculateDiscountRateResults,
   calculatePeriodReferenceRates,
+  orderPeriodDiscounts,
   projectPeriodRoomPrices,
   projectPeriodRoomRateRows,
   validatePricePeriod,
@@ -158,15 +159,55 @@ describe("price management", () => {
       expediaFlexCents: firstOta,
       expediaNonRefundableCents: Math.round(initialOtaNr * 0.95),
     });
+    expect(result.map((row) => row.discountId)).toEqual(["ota1", "ota2", "loyalty"]);
     expect(result[1]).toMatchObject({
-      bookingFlexCents: Math.round(firstOta * 0.9),
-      expediaFlexCents: Math.round(firstOta * 0.9),
-    });
-    expect(result[2]).toMatchObject({
       bookingFlexCents: Math.round(original.otaFlexCents * 0.95 * 0.95),
       expediaFlexCents: Math.round(original.otaFlexCents * 0.95 * 0.95),
       bookingNonRefundableCents: Math.round(initialOtaNr * 0.95 * 0.95),
     });
+    expect(result[2]).toMatchObject({
+      bookingFlexCents: Math.round(Math.round(original.otaFlexCents * 0.95 * 0.95) * 0.9),
+      expediaFlexCents: Math.round(Math.round(original.otaFlexCents * 0.95 * 0.95) * 0.9),
+    });
+  });
+
+  it("places both revisions above promotions while preserving each group's order", () => {
+    const loyalty = { id: "loyalty", kind: "loyalty" as const, name: "Fidelização", discountPct: 10, active: true };
+    const mobile = { id: "mobile", kind: "mobile" as const, name: "Móveis", discountPct: 10, active: true };
+    const dir = { id: "dir", kind: "direct_price_adjustment" as const, name: "Ajuste de Preço DIR", discountPct: 5, active: true };
+    const ota = { id: "ota", kind: "ota_price_adjustment" as const, name: "Ajuste de Preço OTA", discountPct: 5, active: true };
+    const period: PricePeriod = {
+      ...sheet1Period,
+      directFlexReferenceCents: 9750,
+      discounts: [loyalty, mobile, dir, ota],
+    };
+    expect(orderPeriodDiscounts(period.discounts).map((item) => item.id)).toEqual(["dir", "ota", "loyalty", "mobile"]);
+    const original = calculatePeriodReferenceRates(period)!;
+    const result = calculateDiscountRateResults(period, original.otaFlexCents, original.directNonRefundableCents);
+    expect(result.map((item) => item.discountId)).toEqual(["dir", "ota", "loyalty", "mobile"]);
+    expect(result[0]).toMatchObject({ directCents: 9263, directNonRefundableCents: 8336 });
+    const adjustedOta = Math.round(original.otaFlexCents * 0.95);
+    expect(result[1]).toMatchObject({ bookingFlexCents: adjustedOta, expediaFlexCents: adjustedOta });
+    expect(result[2]).toMatchObject({ bookingFlexCents: Math.round(adjustedOta * 0.9) });
+    expect(result[3]).toMatchObject({ bookingFlexCents: Math.round(adjustedOta * 0.9 * 0.9) });
+  });
+
+  it("applies all later OTA revisions before even an earlier-listed booking promotion", () => {
+    const period: PricePeriod = {
+      ...sheet1Period,
+      discounts: [
+        { id: "basic", kind: "basic_deal", name: "Basic Deal", discountPct: 20, active: true },
+        { id: "booking", kind: "booking_campaign", name: "Booking", discountPct: 10, active: true },
+        { id: "ota1", kind: "ota_price_adjustment", name: "Ajuste de Preço OTA", discountPct: 5, active: true },
+        { id: "ota2", kind: "ota_price_adjustment", name: "Ajuste de Preço OTA", discountPct: 5, active: true },
+      ],
+    };
+    const original = calculatePeriodReferenceRates(period)!;
+    const result = calculateDiscountRateResults(period, original.otaFlexCents, original.directNonRefundableCents);
+    const revised = Math.round(original.otaFlexCents * 0.95 * 0.95);
+    expect(result.map((row) => row.discountId)).toEqual(["ota1", "ota2", "basic", "booking"]);
+    expect(result[2].bookingFlexCents).toBe(Math.round(revised * 0.8));
+    expect(result[3].bookingFlexCents).toBe(Math.round(revised * 0.9));
   });
 
   it("does not apply DIR adjustments to OTA or OTA adjustments to DIR", () => {
