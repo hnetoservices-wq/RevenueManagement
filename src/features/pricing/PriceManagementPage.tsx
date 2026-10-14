@@ -18,6 +18,8 @@ import type { PriceDiscountEntry, PriceDiscountKind, PriceManagementConfig, Pric
 import "./pricing.css";
 
 const DISCOUNT_KINDS: PriceDiscountKind[] = [
+  "direct_price_adjustment",
+  "ota_price_adjustment",
   "loyalty",
   "mobile",
   "basic_deal",
@@ -295,9 +297,23 @@ export function PriceManagementPage({ property }: { property: Property }) {
     const result = resultById.get(item.id);
     if (!result || !previewRates) return { effective: null, bookingDelta: null, expediaDelta: null };
 
+    const index = periodDiscounts.findIndex((entry) => entry.id === item.id);
+    const preceding = index < 0 ? [] : periodDiscounts.slice(0, index);
+    const directFactor = preceding
+      .filter((entry) => entry.active && entry.kind === "direct_price_adjustment")
+      .reduce((factor, entry) => factor * (1 - entry.discountPct / 100), 1);
+    const comparableDirectBase = Math.round(previewRates.directFlexCents * directFactor);
+    const comparableDirectNr = Math.round(previewRates.directNonRefundableCents * directFactor);
     if (item.kind === "direct_last_minute") {
       return {
-        effective: effectiveDiscount(previewRates.directNonRefundableCents, result.directCents),
+        effective: effectiveDiscount(comparableDirectNr, result.directCents),
+        bookingDelta: null,
+        expediaDelta: null,
+      };
+    }
+    if (item.kind === "direct_price_adjustment") {
+      return {
+        effective: effectiveDiscount(previewRates.directFlexCents, result.directCents),
         bookingDelta: null,
         expediaDelta: null,
       };
@@ -306,7 +322,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
     const finalOta = result.bookingFlexCents ?? result.expediaFlexCents;
     const comparableDirect = item.kind === "ota_last_minute" && directLastMinuteCents
       ? directLastMinuteCents
-      : previewRates.directFlexCents;
+      : comparableDirectBase;
 
     return {
       effective: effectiveDiscount(previewRates.otaFlexCents, finalOta),
@@ -328,6 +344,13 @@ export function PriceManagementPage({ property }: { property: Property }) {
     const result = resultById.get(item.id);
     if (item.kind === "direct_last_minute") {
       return <><td colSpan={2} className="sheet-rate sheet-rate-merged">{euro(result?.directCents, property.currency)}</td><td colSpan={2}></td><td colSpan={2}></td></>;
+    }
+    if (item.kind === "direct_price_adjustment") {
+      return <>
+        <td className="sheet-rate">{euro(result?.directCents, property.currency)}</td>
+        <td className="sheet-rate">{euro(result?.directNonRefundableCents, property.currency)}</td>
+        <td colSpan={2}></td><td colSpan={2}></td>
+      </>;
     }
     if (item.kind === "ota_last_minute") {
       return <><td colSpan={2}></td><td colSpan={2} className="sheet-rate sheet-rate-merged">{euro(result?.bookingFlexCents, property.currency)}</td><td colSpan={2} className="sheet-rate sheet-rate-merged">{euro(result?.expediaFlexCents, property.currency)}</td></>;
