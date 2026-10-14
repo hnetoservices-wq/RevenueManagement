@@ -246,6 +246,13 @@ function controlValues(period: PricePeriod, discount: PriceDiscountEntry) {
       expediaDelta: null,
     };
   }
+  if (discount.kind === "direct_booking_discount") {
+    return {
+      effective: effectiveDiscount(comparableDirectBase, result.directCents),
+      bookingDelta: null,
+      expediaDelta: null,
+    };
+  }
 
   const directLastMinute = results.find((item) => item.kind === "direct_last_minute" && item.directCents)?.directCents ?? null;
   const finalOta = result.bookingFlexCents ?? result.expediaFlexCents;
@@ -309,7 +316,7 @@ function appendRateCells(row: HTMLTableRowElement, period: PricePeriod, discount
     return;
   }
 
-  if (discount.kind === "direct_price_adjustment") {
+  if (discount.kind === "direct_price_adjustment" || discount.kind === "direct_booking_discount") {
     const flex = td("sheet-rate");
     flex.textContent = money(result?.directCents);
     const nr = td("sheet-rate");
@@ -379,7 +386,7 @@ function appendDiscountRow(tbody: HTMLTableSectionElement, period: PricePeriod, 
   nameCell.colSpan = 2;
   const source = nameCell;
 
-  if (discount.kind === "custom") {
+  if (discount.kind === "custom" || discount.kind === "direct_booking_discount") {
     const custom = document.createElement("div");
     custom.className = "sheet-custom-discount";
     custom.appendChild(createDiscountKindSelect(period, discount, source));
