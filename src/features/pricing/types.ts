@@ -3,6 +3,7 @@ import type { IsoDate } from "../../domain/models";
 export type PriceDiscountKind =
   | "direct_price_adjustment"
   | "ota_price_adjustment"
+  | "direct_booking_discount"
   | "loyalty"
   | "mobile"
   | "basic_deal"
