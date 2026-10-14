@@ -113,6 +113,80 @@ describe("price management", () => {
     });
   });
 
+  it("tracks independent consecutive DIR adjustments without rounding drift", () => {
+    const period: PricePeriod = {
+      ...sheet1Period,
+      directFlexReferenceCents: 9750,
+      otaUpliftPct: 20,
+      discounts: [
+        { id: "dir1", kind: "direct_price_adjustment", name: "Ajuste de Preço DIR", discountPct: 5, active: true },
+        { id: "dir2", kind: "direct_price_adjustment", name: "Ajuste de Preço DIR", discountPct: 5, active: true },
+      ],
+    };
+    const original = calculatePeriodReferenceRates(period)!;
+    expect(original.directFlexCents).toBe(9750);
+    expect(original.directNonRefundableCents).toBe(8775);
+    const adjustments = calculateDiscountRateResults(period, original.otaFlexCents, original.directNonRefundableCents);
+    expect(adjustments.map((row) => [row.directCents, row.directNonRefundableCents])).toEqual([
+      [9263, 8336],
+      [8799, 7919],
+    ]);
+    expect(adjustments.every((row) => row.bookingFlexCents === null && row.expediaFlexCents === null)).toBe(true);
+    expect(projectPeriodRoomRateRows(rooms, config, period)[0]).toMatchObject({
+      directFlexCents: 8799, directNonRefundableCents: 7919,
+    });
+  });
+
+  it("tracks OTA adjustments separately and rebases following promotions", () => {
+    const period: PricePeriod = {
+      ...sheet1Period,
+      directFlexReferenceCents: 9750,
+      discounts: [
+        { id: "ota1", kind: "ota_price_adjustment", name: "Ajuste de Preço OTA", discountPct: 5, active: true },
+        { id: "loyalty", kind: "loyalty", name: "Fidelização", discountPct: 10, active: true },
+        { id: "ota2", kind: "ota_price_adjustment", name: "Ajuste de Preço OTA", discountPct: 5, active: true },
+      ],
+    };
+    const original = calculatePeriodReferenceRates(period)!;
+    const result = calculateDiscountRateResults(period, original.otaFlexCents, original.directNonRefundableCents);
+    const firstOta = Math.round(original.otaFlexCents * 0.95);
+    const initialOtaNr = original.otaNonRefundableCents;
+    expect(result[0]).toMatchObject({
+      directCents: null,
+      bookingFlexCents: firstOta,
+      bookingNonRefundableCents: Math.round(initialOtaNr * 0.95),
+      expediaFlexCents: firstOta,
+      expediaNonRefundableCents: Math.round(initialOtaNr * 0.95),
+    });
+    expect(result[1]).toMatchObject({
+      bookingFlexCents: Math.round(firstOta * 0.9),
+      expediaFlexCents: Math.round(firstOta * 0.9),
+    });
+    expect(result[2]).toMatchObject({
+      bookingFlexCents: Math.round(original.otaFlexCents * 0.95 * 0.95),
+      expediaFlexCents: Math.round(original.otaFlexCents * 0.95 * 0.95),
+      bookingNonRefundableCents: Math.round(initialOtaNr * 0.95 * 0.95),
+    });
+  });
+
+  it("does not apply DIR adjustments to OTA or OTA adjustments to DIR", () => {
+    const baseline: PricePeriod = { ...sheet1Period, discounts: [] };
+    const adjusted: PricePeriod = {
+      ...baseline,
+      discounts: [
+        { id: "dir", kind: "direct_price_adjustment", name: "Ajuste DIR", discountPct: 5, active: true },
+        { id: "ota", kind: "ota_price_adjustment", name: "Ajuste OTA", discountPct: 10, active: true },
+      ],
+    };
+    const baselineRow = projectPeriodRoomRateRows(rooms, config, baseline)[0];
+    const result = calculateDiscountRateResults(adjusted, calculatePeriodReferenceRates(adjusted)!.otaFlexCents, calculatePeriodReferenceRates(adjusted)!.directNonRefundableCents);
+    expect(result[0].bookingFlexCents).toBeNull();
+    expect(result[1].directCents).toBeNull();
+    const adjustedRow = projectPeriodRoomRateRows(rooms, config, adjusted)[0];
+    expect(adjustedRow.directFlexCents).toBe(Math.round(baselineRow.directFlexCents * 0.95));
+    expect(adjustedRow.otaFlexCents).toBe(Math.round(baselineRow.otaFlexCents * 0.9));
+  });
+
   it("allows overlapping pricing periods so the UI can warn about them", () => {
     expect(validatePricePeriod({ ...sheet1Period, id: "b", startDate: "2026-12-20", endDate: "2026-12-29" }, [sheet1Period])).toBeNull();
     expect(validatePricePeriod({ ...sheet1Period, id: "b", startDate: "2026-12-24", endDate: "2026-12-29" }, [sheet1Period])).toBeNull();
