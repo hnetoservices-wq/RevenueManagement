@@ -21,6 +21,7 @@ import "./pricing.css";
 const DISCOUNT_KINDS: PriceDiscountKind[] = [
   "direct_price_adjustment",
   "ota_price_adjustment",
+  "direct_booking_discount",
   "loyalty",
   "mobile",
   "basic_deal",
@@ -325,6 +326,13 @@ export function PriceManagementPage({ property }: { property: Property }) {
         expediaDelta: null,
       };
     }
+    if (item.kind === "direct_booking_discount") {
+      return {
+        effective: effectiveDiscount(comparableDirectBase, result.directCents),
+        bookingDelta: null,
+        expediaDelta: null,
+      };
+    }
 
     const finalOta = result.bookingFlexCents ?? result.expediaFlexCents;
     const comparableDirect = item.kind === "ota_last_minute" && directLastMinuteCents
@@ -352,7 +360,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
     if (item.kind === "direct_last_minute") {
       return <><td colSpan={2} className="sheet-rate sheet-rate-merged">{euro(result?.directCents, property.currency)}</td><td colSpan={2}></td><td colSpan={2}></td></>;
     }
-    if (item.kind === "direct_price_adjustment") {
+    if (item.kind === "direct_price_adjustment" || item.kind === "direct_booking_discount") {
       return <>
         <td className="sheet-rate">{euro(result?.directCents, property.currency)}</td>
         <td className="sheet-rate">{euro(result?.directNonRefundableCents, property.currency)}</td>
@@ -375,7 +383,7 @@ export function PriceManagementPage({ property }: { property: Property }) {
   function renderDiscountRow(item: PriceDiscountEntry) {
     return <tr key={item.id}>
       <td colSpan={2} className="sheet-discount-name">
-        {item.kind === "custom" ? <div className="sheet-custom-discount">
+        {(item.kind === "custom" || item.kind === "direct_booking_discount") ? <div className="sheet-custom-discount">
           <select value={item.kind} onChange={(event) => changeDiscountKind(item, event.target.value as PriceDiscountKind)}>{DISCOUNT_KINDS.map((kind) => <option key={kind} value={kind}>{DISCOUNT_KIND_LABELS[kind]}</option>)}</select>
           <input value={item.name} placeholder="Nome do desconto" onChange={(event) => updateDiscount(item.id, { name: event.target.value })} />
         </div> : <select value={item.kind} onChange={(event) => changeDiscountKind(item, event.target.value as PriceDiscountKind)}>
