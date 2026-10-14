@@ -7,6 +7,7 @@ export const DEFAULT_NON_REFUNDABLE_DISCOUNT_PCT = 10;
 export const DISCOUNT_KIND_LABELS: Record<PriceDiscountKind, string> = {
   direct_price_adjustment: "Ajuste de Preço DIR",
   ota_price_adjustment: "Ajuste de Preço OTA",
+  direct_booking_discount: "Desconto Reservas Diretas",
   loyalty: "Fidelização",
   mobile: "Móveis",
   basic_deal: "Basic Deal",
@@ -124,6 +125,7 @@ export function discountStackDescription(kind: PriceDiscountKind): string {
   switch (kind) {
     case "direct_price_adjustment":
     case "ota_price_adjustment": return "Revisão do preço base (não é promoção)";
+    case "direct_booking_discount": return "Exclusivo para reservas diretas; não acumula com outros descontos";
     case "loyalty": return "Não acumula com outra Fidelização";
     case "mobile": return "Fidelização";
     case "basic_deal": return "Fidelização + Móveis";
@@ -279,6 +281,18 @@ export function calculateDiscountRateResults(
       base.expediaNonRefundableCents = adjustedOtaNr;
       bookingNrCandidates.push(adjustedOtaNr);
       expediaNrCandidates.push(adjustedOtaNr);
+      rows.push(base);
+      continue;
+    }
+
+    if (discount.kind === "direct_booking_discount") {
+      // Each named direct-only discount is an independent alternative to the
+      // final adjusted Direct rate. It never stacks with itself, other Direct
+      // discounts, OTA promotions, or the Direct last-minute offer.
+      const revisedDirectFlex = Math.round(directFlexCents * adjustments.direct);
+      const revisedDirectNr = Math.round(directNrCents * adjustments.direct);
+      base.directCents = Math.round(revisedDirectFlex * ownFactor);
+      base.directNonRefundableCents = Math.round(revisedDirectNr * ownFactor);
       rows.push(base);
       continue;
     }
